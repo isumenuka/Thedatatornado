@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity, Radio, ArrowUpRight } from "lucide-react";
-import { motion, AnimatePresence, usePresence } from "motion/react";
+import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity, Radio, ArrowUpRight, Car, Trees, Building2, AlertOctagon, Wind } from "lucide-react";
+import { motion, AnimatePresence, usePresence, useScroll, useTransform, useMotionValue, useMotionValueEvent } from "motion/react";
 import { gsap } from "gsap";
 import { CLIMATE_DATA } from "../../../climateData";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
@@ -10,6 +10,7 @@ import chapterFirstSignals from "../../imports/FIRST_SIGNALS__1970_1979_.jpeg";
 import chapterAcceleration from "../../imports/ACCELERATION__1980_1999_.jpeg";
 import chapterHotDecade from "../../imports/THE_HOT_DECADE__2000_2009_.jpeg";
 import chapterVortexEra from "../../imports/VORTEX_ERA__2010_2024_.jpeg";
+import fujitaImage from "../../imports/image.png";
 import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -1786,6 +1787,486 @@ const CLIMATE_CHAPTERS: Array<{
   { range: [2010, 2024], title: "Vortex Era", blurb: "424 ppm. +1.29°C. The data tornado tightens its spiral.", severityKey: "EXTREME", image: chapterVortexEra },
 ];
 
+const FUJITA_TIERS: Array<{
+  ef: string;
+  wind: string;
+  damage: string;
+  tier: SeverityKey;
+  co2: string;
+  anomaly: string;
+  icon: React.ComponentType<{ size?: number; className?: string }> | null;
+}> = [
+  { ef: "EF0", wind: "65–85 mph", damage: "Branches snap. Signs come down.", tier: "STABLE", co2: "< 320 ppm", anomaly: "< 0°C", icon: Trees },
+  { ef: "EF1", wind: "86–110 mph", damage: "Roofs peel. Mobile homes shift.", tier: "STABLE", co2: "320–340 ppm", anomaly: "0 → +0.2°C", icon: null },
+  { ef: "EF2", wind: "111–135 mph", damage: "Cars tossed. Large trees uprooted.", tier: "ELEVATED", co2: "340–360 ppm", anomaly: "+0.2 → +0.4°C", icon: Car },
+  { ef: "EF3", wind: "136–165 mph", damage: "Roofs torn off. Trains overturned.", tier: "CRITICAL", co2: "360–390 ppm", anomaly: "+0.4 → +0.7°C", icon: null },
+  { ef: "EF4", wind: "166–200 mph", damage: "Frame houses leveled. Cars thrown.", tier: "CRITICAL", co2: "390–410 ppm", anomaly: "+0.7 → +1.0°C", icon: Building2 },
+  { ef: "EF5", wind: "> 200 mph", damage: "Total destruction. Nothing remains.", tier: "EXTREME", co2: "> 410 ppm", anomaly: "> +1.0°C", icon: AlertOctagon },
+];
+
+function FujitaScale() {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const scrollYProgress = useMotionValue(0);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || 1;
+      const total = rect.height - vh;
+      const scrolled = -rect.top;
+      const p = total > 0 ? Math.min(1, Math.max(0, scrolled / total)) : 0;
+      scrollYProgress.set(p);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [scrollYProgress]);
+
+  const meterHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+  const imgScale = useTransform(scrollYProgress, [0, 1], [1, 1.04]);
+  const imgFilter = useTransform(scrollYProgress, [0, 1], ["brightness(0.85) saturate(1)", "brightness(1.1) saturate(1.15)"]);
+  const meterColor = useTransform(
+    scrollYProgress,
+    [0, 0.2, 0.45, 0.75, 1],
+    [SEVERITY_COLORS.STABLE, SEVERITY_COLORS.STABLE, SEVERITY_COLORS.ELEVATED, SEVERITY_COLORS.CRITICAL, SEVERITY_COLORS.EXTREME]
+  );
+  const meterGlow = useTransform(meterColor, (c) => `0 0 24px ${c}, 0 0 6px ${c}`);
+  // Even stepper across full 0 → 1 — EF5 only activates near the very end
+  const ef0On = useTransform(scrollYProgress, [0.00, 0.04, 1.00], [0, 1, 1]);
+  const ef1On = useTransform(scrollYProgress, [0.16, 0.21, 1.00], [0, 1, 1]);
+  const ef2On = useTransform(scrollYProgress, [0.33, 0.38, 1.00], [0, 1, 1]);
+  const ef3On = useTransform(scrollYProgress, [0.50, 0.55, 1.00], [0, 1, 1]);
+  const ef4On = useTransform(scrollYProgress, [0.66, 0.71, 1.00], [0, 1, 1]);
+  const ef5On = useTransform(scrollYProgress, [0.83, 0.88, 1.00], [0, 1, 1]);
+
+  const [activeTier, setActiveTier] = useState(0);
+  const [scrollPct, setScrollPct] = useState(0);
+  const [pulse, setPulse] = useState(false);
+  const firedRef = useRef(false);
+  useMotionValueEvent(scrollYProgress, "change", (p) => {
+    // Even stepper: 6 tiers across full scroll 0 → 1, EF5 activates near the end
+    const steps = FUJITA_TIERS.length;
+    const t = Math.min(steps - 1, Math.max(0, Math.floor(p * steps)));
+    setActiveTier((prev) => (prev === t ? prev : t));
+    setScrollPct(Math.min(99, Math.max(0, Math.round(p * 100))));
+    if (p > 0.92 && !firedRef.current) {
+      firedRef.current = true;
+      setPulse(true);
+      setTimeout(() => setPulse(false), 700);
+    }
+    if (p < 0.6) firedRef.current = false;
+  });
+
+  const tier = FUJITA_TIERS[activeTier];
+  const accent = SEVERITY_COLORS[tier.tier];
+
+  // Derive current EF from latest anomaly (+1.29 → EF5? per mapping > +1.0°C is EF5)
+  const latest = CLIMATE_DATA[CLIMATE_DATA.length - 1];
+  const currentEF = (() => {
+    const a = (latest as any).temp_anomaly ?? 1.29;
+    if (a > 1.0) return "EF5";
+    if (a > 0.7) return "EF4";
+    if (a > 0.4) return "EF3";
+    if (a > 0.2) return "EF2";
+    if (a > 0) return "EF1";
+    return "EF0";
+  })();
+
+  return (
+    <section ref={sectionRef} style={{ position: "relative" }} className="bg-black text-white z-30 overflow-hidden min-h-[500vh]">
+      {/* Header */}
+      <div className="px-6 md:px-12 pt-24 md:pt-32">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="mb-10">
+            <SectionNumber n="05" label="Severity Scale" accent={SEVERITY_COLORS.EXTREME} />
+          </div>
+          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8 mb-16">
+            <h2 className="font-orbitron font-medium text-white text-3xl md:text-5xl xl:text-6xl leading-[1.05] tracking-tight max-w-4xl">
+              <LetterReveal text="Measuring the vortex" />
+            </h2>
+            <div className="font-mono text-[10px] tracking-widest uppercase text-[#888897] max-w-xs">
+              The Enhanced Fujita scale<br />
+              translated into climate.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Two-column scrollytell */}
+      <div className="relative px-6 md:px-12">
+        <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[64px_1fr_360px] gap-6 lg:gap-10 lg:min-h-[330vh]">
+          {/* STRIP A — sticky EF meter */}
+          <div className="hidden lg:block lg:sticky lg:top-0 h-screen py-[10vh]">
+            <div className="relative w-8 mx-auto h-full flex flex-col items-stretch">
+                <div className="absolute inset-0 border border-white/10 bg-black/60 overflow-hidden">
+                  <motion.div
+                    className="absolute bottom-0 left-0 right-0"
+                    style={{ height: meterHeight, background: meterColor, boxShadow: meterGlow }}
+                  />
+                </div>
+                {/* Tier marks */}
+                <div className="relative flex-1 flex flex-col-reverse justify-between py-2">
+                  {FUJITA_TIERS.map((t, i) => {
+                    const threshold = i / (FUJITA_TIERS.length - 1);
+                    return (
+                      <TierMark
+                        key={t.ef}
+                        ef={t.ef}
+                        Icon={t.icon}
+                        progress={scrollYProgress}
+                        threshold={threshold}
+                        color={SEVERITY_COLORS[t.tier]}
+                      />
+                    );
+                  })}
+                </div>
+            </div>
+          </div>
+
+          {/* STRIP B — sticky tornado stage */}
+          <div className="lg:sticky lg:top-0 h-[60vh] lg:h-screen">
+              <div className="relative w-full h-full overflow-hidden">
+                {/* Ambient tier-color glow behind the funnel */}
+                <motion.div
+                  aria-hidden
+                  className="absolute inset-0 pointer-events-none"
+                  animate={{ background: `radial-gradient(ellipse 60% 70% at 50% 55%, ${accent}22 0%, ${accent}10 35%, transparent 70%)` }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                />
+                {/* Soft ground shadow */}
+                <div
+                  aria-hidden
+                  className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+                  style={{
+                    bottom: "12%",
+                    width: "60%",
+                    height: "30px",
+                    background: `radial-gradient(ellipse, ${accent}55 0%, transparent 70%)`,
+                    filter: "blur(8px)",
+                    transition: "background 600ms ease",
+                  }}
+                />
+                {/* Scanline overlay */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 pointer-events-none mix-blend-overlay opacity-[0.06]"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(0deg, rgba(255,255,255,0.6) 0px, rgba(255,255,255,0.6) 1px, transparent 1px, transparent 3px)",
+                  }}
+                />
+                <style>{`
+                  .dt-tornado-stage {
+                    perspective: clamp(600px, 80vh, 1100px);
+                    transform-style: preserve-3d;
+                    animation: dt-swirl 2s linear infinite;
+                    display: flex; align-items: center; justify-content: center;
+                  }
+                  .dt-tornado-stage > span {
+                    position: absolute; left: 50%; top: 50%;
+                    width: clamp(220px, 38vh, 420px); height: clamp(220px, 38vh, 420px);
+                    margin-left: calc(clamp(220px, 38vh, 420px) / -2);
+                    margin-top: calc(clamp(220px, 38vh, 420px) / -2);
+                    display: flex; justify-content: center; align-items: center;
+                    font-size: 0px; backface-visibility: hidden; border-radius: 100%;
+                    transform-style: preserve-3d;
+                    transition: opacity 0.4s ease-out;
+                  }
+                  .dt-tornado-stage > span::after {
+                    position: absolute; font-size: 40px;
+                    animation: dt-upndown 4s ease-in-out infinite alternate;
+                  }
+                  .dt-tornado-stage > span::before {
+                    content: ''; position: absolute; width: 100%; height: 100%;
+                    border-radius: 100%; animation: dt-spin 2s linear infinite;
+                    transform-style: preserve-3d; transform-origin: 50% 37.5%;
+                    box-shadow:
+                      0 0 6px 8px rgba(79, 195, 247, 0.14),
+                      0 0 18px 24px rgba(255, 255, 255, 0.05);
+                  }
+                  /* EF-tier debris */
+                  .dt-tornado-stage > span[data-ef="EF0"] { opacity: var(--ef0-on, 0); }
+                  .dt-tornado-stage > span[data-ef="EF1"] { opacity: var(--ef1-on, 0); }
+                  .dt-tornado-stage > span[data-ef="EF2"] { opacity: var(--ef2-on, 0); }
+                  .dt-tornado-stage > span[data-ef="EF3"] { opacity: var(--ef3-on, 0); }
+                  .dt-tornado-stage > span[data-ef="EF4"] { opacity: var(--ef4-on, 0); }
+                  .dt-tornado-stage > span[data-ef="EF5"] { opacity: var(--ef5-on, 0); }
+                  .dt-tornado-stage > span:nth-of-type(1)::after  { content: '🍃'; font-size: 28px; --orbit-r: 80px;  }
+                  .dt-tornado-stage > span:nth-of-type(2)::after  { content: '🌿'; font-size: 28px; --orbit-r: 80px;  }
+                  .dt-tornado-stage > span:nth-of-type(3)::after  { content: '🪧'; font-size: 28px; --orbit-r: 80px;  }
+                  .dt-tornado-stage > span:nth-of-type(4)::after  { content: '🏚️'; font-size: 32px; --orbit-r: 130px; }
+                  .dt-tornado-stage > span:nth-of-type(5)::after  { content: '🛻'; font-size: 32px; --orbit-r: 130px; }
+                  .dt-tornado-stage > span:nth-of-type(6)::after  { content: '🌳'; font-size: 32px; --orbit-r: 130px; }
+                  .dt-tornado-stage > span:nth-of-type(7)::after  { content: '🚗'; font-size: 38px; --orbit-r: 180px; }
+                  .dt-tornado-stage > span:nth-of-type(8)::after  { content: '🚙'; font-size: 38px; --orbit-r: 180px; }
+                  .dt-tornado-stage > span:nth-of-type(9)::after  { content: '🪵'; font-size: 38px; --orbit-r: 180px; }
+                  .dt-tornado-stage > span:nth-of-type(10)::after { content: '🐄'; font-size: 44px; --orbit-r: 230px; }
+                  .dt-tornado-stage > span:nth-of-type(11)::after { content: '🐎'; font-size: 44px; --orbit-r: 230px; }
+                  .dt-tornado-stage > span:nth-of-type(12)::after { content: '🚜'; font-size: 44px; --orbit-r: 230px; }
+                  .dt-tornado-stage > span:nth-of-type(13)::after { content: '🏠'; font-size: 52px; --orbit-r: 290px; }
+                  .dt-tornado-stage > span:nth-of-type(14)::after { content: '🚌'; font-size: 52px; --orbit-r: 290px; }
+                  .dt-tornado-stage > span:nth-of-type(15)::after { content: '⛺'; font-size: 52px; --orbit-r: 290px; }
+                  .dt-tornado-stage > span:nth-of-type(16)::after { content: '🚂'; font-size: 62px; --orbit-r: 360px; }
+                  .dt-tornado-stage > span:nth-of-type(17)::after { content: '🏚️'; font-size: 62px; --orbit-r: 360px; }
+                  .dt-tornado-stage > span:nth-of-type(18)::after { content: '💥'; font-size: 62px; --orbit-r: 360px; }
+                  /* Dust — cool cyan/white to match site palette */
+                  .dt-tornado-stage > span:nth-of-type(n+19):nth-of-type(-n+80)::after {
+                    content: '•'; color: rgba(200, 220, 240, 0.45); font-size: 40px;
+                    animation: dt-dust 1s ease-in-out infinite;
+                    transform-origin: 200px 50%;
+                    text-shadow: 0 0 6px rgba(79, 195, 247, 0.45);
+                  }
+                  .dt-tornado-stage > span:nth-of-type(3n+19)::after { color: rgba(79,195,247,0.40); text-shadow: 0 0 6px rgba(79,195,247,0.45); }
+                  .dt-tornado-stage > span:nth-of-type(5n+22)::after { color: rgba(229,57,53,0.30); text-shadow: 0 0 8px rgba(229,57,53,0.45); }
+                  .dt-tornado-stage > span:nth-of-type(n+50):nth-of-type(-n+75)::after { font-size: 90px; }
+                  ${Array.from({length:100}).map((_,i)=>{
+                    const n=i+1;
+                    const delayAfter = ((n*n)/-4).toFixed(2);
+                    const dur = (((n*7)%4)+2);
+                    const delayBefore = (n/-50).toFixed(3);
+                    const dustDelay = (n/-6).toFixed(3);
+                    return `.dt-tornado-stage > span:nth-of-type(${n})::after { animation-delay: ${delayAfter}s, ${dustDelay}s; animation-duration: ${dur}s, 1s; } .dt-tornado-stage > span:nth-of-type(${n})::before { animation-delay: ${delayBefore}s; }`;
+                  }).join('\n')}
+                  @keyframes dt-swirl {
+                    0% { transform: rotateX(80deg) rotate(0deg) scale(0.85) translateX(-60px); }
+                    50% { transform: rotateX(70deg) rotate(360deg) scale(1.05) translateX(60px); }
+                    100% { transform: rotateX(80deg) rotate(720deg) scale(0.85) translateX(-60px); }
+                  }
+                  @keyframes dt-upndown {
+                    from { transform: translateY(-25px) rotateX(-50deg) translateZ(var(--orbit-r, 150px)) rotate(0deg); }
+                    to   { transform: translateY(-50px) rotateX(-50deg) translateZ(calc(var(--orbit-r, 150px) * -1)) rotate(360deg); }
+                  }
+                  @keyframes dt-spin {
+                    from { transform: translateZ(-300px) rotate(0deg) scale(0); opacity: 0.18; }
+                    to   { transform: translateZ(150px) rotate(900deg) scale(1); opacity: 0.6; }
+                  }
+                  @keyframes dt-dust {
+                    0%   { transform: translateZ(-275px) rotateX(-50deg); opacity: 0.25; }
+                    25%  { transform: translateZ(-250px) rotate(180deg) rotateX(-50deg); opacity: 0; }
+                    50%  { transform: translateZ(-275px) rotateX(-50deg); opacity: 0.25; }
+                    100% { transform: translateZ(-250px) rotate(-90deg) rotateX(-50deg); opacity: 0; }
+                  }
+                `}</style>
+                <motion.div
+                  className="dt-tornado-stage absolute inset-0"
+                  style={{
+                    ["--ef0-on" as any]: ef0On,
+                    ["--ef1-on" as any]: ef1On,
+                    ["--ef2-on" as any]: ef2On,
+                    ["--ef3-on" as any]: ef3On,
+                    ["--ef4-on" as any]: ef4On,
+                    ["--ef5-on" as any]: ef5On,
+                  }}
+                >
+                  {Array.from({ length: 100 }).map((_, i) => {
+                    const ef =
+                      i < 3 ? "EF0" :
+                      i < 6 ? "EF1" :
+                      i < 9 ? "EF2" :
+                      i < 12 ? "EF3" :
+                      i < 15 ? "EF4" :
+                      i < 18 ? "EF5" : undefined;
+                    return <span key={i} data-ef={ef} />;
+                  })}
+                </motion.div>
+                {/* Corner readouts */}
+                <div className="absolute top-4 left-4 pointer-events-none">
+                  <div className="font-mono text-[10px] tracking-[0.25em] uppercase text-white/40">
+                    // Fujita Scale — Real-Time
+                  </div>
+                  <div className="mt-2 w-px h-6 bg-white/20" />
+                </div>
+                <div className="absolute bottom-4 left-4 pointer-events-none flex items-baseline gap-3">
+                  <span className="font-orbitron font-black text-[18px] leading-none" style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}>
+                    {tier.ef}
+                  </span>
+                  <span className="font-mono text-[10px] tracking-[0.25em] uppercase" style={{ color: accent }}>
+                    {tier.tier}
+                  </span>
+                </div>
+                <div className="absolute bottom-4 right-4 pointer-events-none font-mono text-[11px] tracking-[0.2em] text-white/40 tabular-nums">
+                  {String(scrollPct).padStart(2, "0")} / 99
+                </div>
+                {/* Red vignette pulse */}
+                <AnimatePresence>
+                  {pulse && (
+                    <motion.div
+                      key="pulse"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ boxShadow: `inset 0 0 200px 40px ${SEVERITY_COLORS.EXTREME}`, background: `radial-gradient(ellipse at center, transparent 40%, ${SEVERITY_COLORS.EXTREME}33 100%)` }}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
+          </div>
+
+          {/* STRIP C — Instrument Panel */}
+          <div className="lg:sticky lg:top-0 h-screen flex items-center">
+            <div className="w-full border border-white/10 bg-white/[0.015] backdrop-blur-sm p-7">
+              {/* Breadcrumb */}
+              <div className="flex items-center justify-between mb-7">
+                <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-white/40 tabular-nums">
+                  05 / 06
+                </span>
+                <span className="flex-1 mx-3 h-px bg-white/[0.06]" />
+                <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-white/40">
+                  Severity
+                </span>
+              </div>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={tier.ef}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {/* EF numeral */}
+                  <div
+                    className={`font-orbitron font-black text-[88px] leading-[0.85] tracking-tight ${tier.ef === "EF5" && pulse ? "hud-glitch-text" : ""}`}
+                    style={{ color: accent, textShadow: `0 0 24px ${accent}66` }}
+                  >
+                    {tier.ef}
+                  </div>
+                  <div className="mt-2 font-mono text-[13px] text-white/85 tracking-wide tabular-nums">
+                    {tier.wind}
+                  </div>
+
+                  <div className="h-px bg-white/[0.06] my-6" />
+
+                  {/* Damage */}
+                  <div className="text-[13px] leading-snug text-white/85 max-w-[280px]">
+                    {tier.damage}
+                  </div>
+
+                  <div className="h-px bg-white/[0.06] my-6" />
+
+                  {/* CO₂ / Anomaly */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="font-mono text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1.5">CO₂</div>
+                      <div className="font-mono text-[13px] text-white/85 tabular-nums">{tier.co2}</div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1.5">Anomaly</div>
+                      <div className="font-mono text-[13px] text-white/85 tabular-nums">{tier.anomaly}</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              <div className="h-px bg-white/[0.06] my-6" />
+
+              {/* 6-cell progress block */}
+              <div className="flex items-center gap-1.5 mb-3">
+                {FUJITA_TIERS.map((t, i) => {
+                  const c = SEVERITY_COLORS[t.tier];
+                  const filled = activeTier >= i;
+                  return (
+                    <div
+                      key={t.ef}
+                      className="flex-1 h-3"
+                      style={{
+                        background: filled ? c : "transparent",
+                        border: `1px solid ${filled ? c : "rgba(255,255,255,0.12)"}`,
+                        boxShadow: filled ? `0 0 8px ${c}66` : "none",
+                        transition: "background 280ms ease, box-shadow 280ms ease, border-color 280ms ease",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="font-mono text-[10px] tracking-[0.3em] uppercase text-white/40 tabular-nums">
+                Tier {activeTier + 1} of 6
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hand-off callout */}
+        <div className="max-w-7xl mx-auto w-full mt-4 mb-6 border-t border-white/10 pt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Wind size={16} className="text-white/50" />
+            <span className="font-mono text-[11px] md:text-[13px] tracking-[0.25em] uppercase text-white/80">
+              Your climate is currently at{" "}
+              <span style={{ color: SEVERITY_COLORS.EXTREME, textShadow: `0 0 12px ${SEVERITY_COLORS.EXTREME}` }} className="font-orbitron font-black">
+                {currentEF}
+              </span>{" "}
+              — keep scrolling
+            </span>
+          </div>
+          <ArrowDown size={18} className="text-white/40 animate-bounce" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TierMark({
+  ef,
+  Icon,
+  progress,
+  threshold,
+  color,
+}: {
+  ef: string;
+  Icon: React.ComponentType<{ size?: number; className?: string }> | null;
+  progress: ReturnType<typeof useScroll>["scrollYProgress"];
+  threshold: number;
+  color: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [fired, setFired] = useState(false);
+  useMotionValueEvent(progress, "change", (p) => {
+    if (p >= threshold && !fired) {
+      setArmed(true);
+      setFired(true);
+      setTimeout(() => setArmed(false), 900);
+    }
+    if (p < threshold - 0.05) setFired(false);
+  });
+  return (
+    <div className="relative flex items-center h-px">
+      <span className="absolute -left-1 w-4 h-px" style={{ background: color }} />
+      <span className="absolute left-10 font-mono text-[8px] tracking-[0.2em] uppercase text-white/40">
+        {ef}
+      </span>
+      <AnimatePresence>
+        {armed && Icon && (
+          <motion.span
+            key="ico"
+            initial={{ opacity: 0, y: 0, x: 0 }}
+            animate={{ opacity: [0, 1, 1, 0], y: -32, x: 12 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="absolute left-6"
+            style={{ color }}
+          >
+            <Icon size={14} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function ClimateChapters() {
   const [active, setActive] = useState(2);
   const [paused, setPaused] = useState(false);
@@ -2104,7 +2585,7 @@ export function DataTornado({ isReady = true, defaultYear }: { isReady?: boolean
   return (
     <div
       ref={containerRef}
-      className="relative min-h-screen w-full overflow-x-hidden bg-[#05050A] text-white font-sans hud-grid scroll-smooth"
+      className="relative min-h-screen w-full bg-[#05050A] text-white font-sans hud-grid scroll-smooth"
     >
       {/* SECTION 1: INTERACTIVE CHAMBER HERO */}
       <section className="relative h-screen w-full overflow-hidden flex flex-col justify-between">
@@ -2336,12 +2817,15 @@ export function DataTornado({ isReady = true, defaultYear }: { isReady?: boolean
         </div>
       </section>
 
-      {/* SECTION 5: CLIMATE CHAPTERS */}
+      {/* SECTION 5: FUJITA SCALE CROSSOVER */}
+      <FujitaScale />
+
+      {/* SECTION 6: CLIMATE CHAPTERS */}
       <section className="relative bg-[#0a0a0a] text-white z-30 overflow-hidden">
-        <div className="px-6 md:px-12 pt-24 md:pt-32 pb-12">
+        <div className="px-6 md:px-12 pt-12 md:pt-16 pb-12">
           <div className="max-w-7xl mx-auto w-full">
             <div className="mb-10">
-              <SectionNumber n="05" label="Decade Chapters" accent="#888897" />
+              <SectionNumber n="06" label="Decade Chapters" accent="#888897" />
             </div>
             <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8">
               <h2 className="font-orbitron font-medium text-white text-3xl md:text-5xl xl:text-6xl leading-[1.05] tracking-tight max-w-3xl">
