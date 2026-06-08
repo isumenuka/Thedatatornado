@@ -1814,41 +1814,37 @@ function ClimateChapters() {
       <div className="h-px w-full bg-white/[0.08]" />
       <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[520px]">
         {/* Left: dissolve panel */}
-        <div className="lg:col-span-4 relative border-b lg:border-b-0 lg:border-r border-white/[0.08] min-h-[360px] lg:min-h-0 flex flex-col">
+        <div className="lg:col-span-4 relative border-b lg:border-b-0 lg:border-r border-white/[0.08] flex flex-col">
           <div className="px-8 pt-8 text-[#666] text-xl tracking-[0.4em]">⁂ ⁂ ⁂</div>
-          <div className="flex-1 relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={active}
-                initial={{ opacity: 0, scale: 1.04 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.7, ease: "easeOut" }}
-                className="absolute inset-0"
-              >
-                <img
-                  src={chapter.image}
-                  alt={`${chapter.title} (${chapter.range[0]}–${chapter.range[1]})`}
-                  className="w-full h-full object-cover"
-                />
-                <div
-                  className="absolute inset-0 pointer-events-none transition-colors duration-700"
-                  style={{
-                    background: `linear-gradient(180deg, ${accent}22 0%, transparent 30%, rgba(10,10,10,0.45) 100%)`,
-                    boxShadow: `inset 0 0 80px ${accent}33`,
-                  }}
-                />
-                <div className="absolute left-6 bottom-6 right-6 flex items-baseline justify-between font-mono text-[10px] tracking-[0.25em] uppercase text-white/80">
-                  <span
-                    className="font-orbitron font-black text-[20px] md:text-[24px] tracking-tight"
-                    style={{ color: accent, textShadow: `0 0 12px ${accent}` }}
-                  >
-                    {chapter.range[0]}–{chapter.range[1]}
-                  </span>
-                  <span className="text-white/60">{chapter.title}</span>
-                </div>
-              </motion.div>
-            </AnimatePresence>
+          <div className="flex-1 flex items-center justify-center p-6 bg-black">
+            <div className="relative w-full max-w-[420px] aspect-square overflow-hidden bg-black">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={active}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="absolute inset-0"
+                >
+                  <img
+                    src={chapter.image}
+                    alt={`${chapter.title} (${chapter.range[0]}–${chapter.range[1]})`}
+                    className="block w-full h-full"
+                    style={{ aspectRatio: "1 / 1", objectFit: "fill" }}
+                  />
+                  <div className="absolute left-3 bottom-3 right-3 flex items-baseline justify-between font-mono text-[10px] tracking-[0.25em] uppercase text-white/80">
+                    <span
+                      className="font-orbitron font-black text-[18px] tracking-tight"
+                      style={{ color: accent, textShadow: `0 0 12px ${accent}` }}
+                    >
+                      {chapter.range[0]}–{chapter.range[1]}
+                    </span>
+                    <span className="text-white/60">{chapter.title}</span>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
           {/* Counter */}
           <div className="px-8 pb-8 pt-4 flex items-baseline gap-2 font-mono text-[10px] tracking-widest uppercase">
