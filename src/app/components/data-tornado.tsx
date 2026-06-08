@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity } from "lucide-react";
+import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity, Radio } from "lucide-react";
 import { gsap } from "gsap";
 import { CLIMATE_DATA } from "../../../climateData";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import videoSrc from "../../imports/0607.mp4";
 import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
@@ -14,6 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
+
+const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-7b7572b4`;
 
 type Entry = (typeof CLIMATE_DATA)[number];
 type SeverityKey = "STABLE" | "ELEVATED" | "CRITICAL" | "EXTREME";
@@ -553,28 +556,46 @@ function ShareCard({ todaySeverity }: { todaySeverity: SeverityKey }) {
   const [input, setInput] = useState("");
   const [submittedYear, setSubmittedYear] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   const submittedEntry =
     submittedYear !== null
       ? CLIMATE_DATA.find((d) => d.year === submittedYear)
       : null;
 
-  const cardText = submittedEntry
-    ? `In ${submittedEntry.year}: CO₂ was ${submittedEntry.co2_ppm} ppm and the tornado was ${submittedEntry.severity}. Today it is ${todaySeverity}.`
-    : "";
+  const shareUrl = shareId ? `${window.location.origin}?share=${shareId}` : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const y = parseInt(input, 10);
-    if (Number.isFinite(y) && y >= MIN_YEAR && y <= MAX_YEAR) {
-      setSubmittedYear(y);
-      setCopied(false);
+    if (!Number.isFinite(y) || y < MIN_YEAR || y > MAX_YEAR) return;
+    const entry = CLIMATE_DATA.find((d) => d.year === y);
+    const share_text = entry
+      ? `In ${y}: CO₂ was ${entry.co2_ppm} ppm and the tornado was ${entry.severity}. Today it is ${todaySeverity}.`
+      : `Birth year ${y} — The Data Tornado`;
+    setSubmittedYear(y);
+    setCopied(false);
+    setShareLoading(true);
+    try {
+      const res = await fetch(`${SERVER_URL}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${publicAnonKey}` },
+        body: JSON.stringify({ birth_year: y, share_text }),
+      });
+      const data = await res.json();
+      if (data.id) setShareId(data.id);
+      else console.log(`Share creation error: ${JSON.stringify(data)}`);
+    } catch (err) {
+      console.log(`Share POST error: ${err}`);
+    } finally {
+      setShareLoading(false);
     }
   };
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(cardText);
+      await navigator.clipboard.writeText(shareUrl ?? "");
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -586,6 +607,7 @@ function ShareCard({ todaySeverity }: { todaySeverity: SeverityKey }) {
     setSubmittedYear(null);
     setInput("");
     setCopied(false);
+    setShareId(null);
   };
 
   return (
@@ -597,8 +619,8 @@ function ShareCard({ todaySeverity }: { todaySeverity: SeverityKey }) {
       }}
     >
       <DialogTrigger asChild>
-        <button className="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full border border-white/[0.08] bg-black/60 backdrop-blur-md font-mono text-[11px] tracking-[0.15em] text-[#d0d0dc] hover:border-white/20 hover:text-white transition-all shadow-[0_4px_12px_rgba(0,0,0,0.5)] hud-right-btn hover:scale-105">
-          <Share2 size={12} />
+        <button className="absolute top-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2 border border-white/10 bg-black/40 backdrop-blur-sm font-mono text-[10px] tracking-[0.3em] text-white/50 hover:text-white/90 hover:border-white/25 hover:bg-white/5 transition-all duration-300 rounded-sm">
+          <Share2 size={10} className="opacity-60" />
           SHARE BIRTH YEAR
         </button>
       </DialogTrigger>
@@ -627,7 +649,7 @@ function ShareCard({ todaySeverity }: { todaySeverity: SeverityKey }) {
               type="submit"
               className="w-full bg-white text-black hover:bg-white/90 h-10 font-bold hover:shadow-[0_0_15px_rgba(255,255,255,0.25)] transition-all"
             >
-              GENERATE DECRIPTION
+              GENERATE TRANSMISSION
             </Button>
           </form>
         ) : (
@@ -655,13 +677,26 @@ function ShareCard({ todaySeverity }: { todaySeverity: SeverityKey }) {
                 Today the system has reached <span className="font-mono font-bold" style={{ color: SEVERITY_COLORS[todaySeverity] }}>{todaySeverity}</span> status.
               </p>
             </div>
+
+            {/* Share URL */}
+            <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2">
+              {shareLoading ? (
+                <span className="text-[10px] text-[#888897] animate-pulse">Generating share link…</span>
+              ) : shareUrl ? (
+                <span className="text-[10px] text-[#888897] font-mono break-all leading-relaxed">{shareUrl}</span>
+              ) : (
+                <span className="text-[10px] text-[#888897]">Share link unavailable</span>
+              )}
+            </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={handleCopy}
-                className="flex-1 bg-white text-black hover:bg-white/90 font-bold"
+                disabled={!shareUrl || shareLoading}
+                className="flex-1 bg-white text-black hover:bg-white/90 font-bold disabled:opacity-40"
               >
                 <Copy size={12} className="mr-2" />
-                {copied ? "COPIED TO CLIPBOARD" : "COPY REPORT"}
+                {copied ? "LINK COPIED!" : "COPY SHARE LINK"}
               </Button>
               <Button
                 onClick={reset}
@@ -1527,22 +1562,23 @@ function WorkflowTimeline() {
   );
 }
 
-export function DataTornado({ isReady = true }: { isReady?: boolean }) {
+export function DataTornado({ isReady = true, defaultYear }: { isReady?: boolean; defaultYear?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekTimeRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
 
-  const [year, setYear] = useState(MIN_YEAR);
+  const [year, setYear] = useState(defaultYear ?? MIN_YEAR);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(FALLBACK_DURATION);
   const [liveData, setLiveData] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [loop, setLoop] = useState(true);
-  
-  // Real-time micro-fluctuations
+
+  // Real-time micro-fluctuations (replaced with real NOAA deltas when live)
   const [noise, setNoise] = useState({ co2: 0, temp: 0, tavg: 0 });
+  const [liveReading, setLiveReading] = useState<{ current_co2: number | null; current_sst: number | null } | null>(null);
 
   const severity = severityFromTime(currentTime);
   const entry = useMemo(() => CLIMATE_DATA.find((d) => d.year === year) ?? CLIMATE_DATA[0], [year]);
@@ -1559,21 +1595,40 @@ export function DataTornado({ isReady = true }: { isReady?: boolean }) {
     }
   }, [severity]);
 
-  // Noise flickers when LIVE DATA is active
+  // Fetch real NOAA data when LIVE DATA is toggled on
   useEffect(() => {
     if (!liveData) {
       setNoise({ co2: 0, temp: 0, tavg: 0 });
+      setLiveReading(null);
       return;
     }
-    const interval = setInterval(() => {
-      setNoise({
-        co2: (Math.random() - 0.5) * 0.12,
-        temp: (Math.random() - 0.5) * 0.02,
-        tavg: (Math.random() - 0.5) * 0.04,
-      });
-    }, 150);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    fetch(`${SERVER_URL}/live`, { headers: { Authorization: `Bearer ${publicAnonKey}` } })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setLiveReading({ current_co2: data.current_co2, current_sst: data.current_sst });
+        const ref = CLIMATE_DATA[CLIMATE_DATA.length - 1];
+        setNoise({
+          co2: data.current_co2 != null ? data.current_co2 - ref.co2_ppm : 0,
+          temp: data.current_sst != null ? data.current_sst - ref.temp_anomaly : 0,
+          tavg: 0,
+        });
+      })
+      .catch(err => console.log(`Live data fetch error: ${err}`));
+    return () => { cancelled = true; };
   }, [liveData]);
+
+  // Seek to defaultYear when it arrives asynchronously (deep-link share)
+  useEffect(() => {
+    if (defaultYear == null) return;
+    setYear(defaultYear);
+    const v = videoRef.current;
+    if (v) {
+      const d = v.duration || FALLBACK_DURATION;
+      v.currentTime = yearToTime(defaultYear, d);
+    }
+  }, [defaultYear]);
 
 
 
@@ -1714,8 +1769,9 @@ export function DataTornado({ isReady = true }: { isReady?: boolean }) {
             </span>
           </div>
 
-          {/* Right: Year Telemetry */}
+          {/* Right: Year Telemetry + LIVE DATA toggle */}
           <div className="flex items-center gap-6">
+            
             <div className="flex items-baseline gap-2">
               <span className="text-[8px] tracking-[0.15em] text-[#888897] font-mono uppercase">COORDINATE TIME</span>
               <span className={`text-[20px] font-black font-orbitron tracking-wider text-white select-none ${
