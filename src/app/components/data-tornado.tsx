@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity, Radio } from "lucide-react";
+import { ChevronRight, ChevronLeft, Copy, Share2, Play, Pause, RotateCcw, ArrowDown, Layers, Cpu, Database, Award, ArrowRight, Activity, Radio, ArrowUpRight } from "lucide-react";
+import { motion, AnimatePresence, usePresence } from "motion/react";
 import { gsap } from "gsap";
 import { CLIMATE_DATA } from "../../../climateData";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
@@ -437,7 +438,7 @@ function CustomBendingSlider({
               fontSize={10}
               fontWeight={t.isActive ? "bold" : "normal"}
               textAnchor="middle"
-              fontFamily="Orbitron, monospace"
+              fontFamily="'JetBrains Mono', monospace"
               className="select-none transition-colors duration-300"
             >
               {t.year}
@@ -483,7 +484,7 @@ function CustomBendingSlider({
         fill={activeColor}
         fontSize={16}
         fontWeight="black"
-        fontFamily="Orbitron, monospace"
+        fontFamily="'JetBrains Mono', monospace"
         className={`select-none transition-all duration-300 ${
           (severity === "CRITICAL" || severity === "EXTREME") ? "hud-glitch-text" : ""
         }`}
@@ -547,6 +548,80 @@ function MinimalSliderPanel({
         onYearChange={onYearChange}
         severity={severity}
       />
+    </div>
+  );
+}
+
+function LiveCO2Ticker() {
+  const [ppm, setPpm] = useState<number | null>(null);
+  const [status, setStatus] = useState<"loading" | "live" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLiveCO2 = async () => {
+      try {
+        const res = await fetch(
+          "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.csv"
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        const lines = text.split("\n").filter((l) => l && !l.startsWith("#"));
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const cols = lines[i].split(",");
+          const val = parseFloat(cols[4]);
+          if (Number.isFinite(val) && val > 0) {
+            if (!cancelled) {
+              setPpm(val);
+              setStatus("live");
+            }
+            return;
+          }
+        }
+        throw new Error("No valid weekly mean found");
+      } catch (err) {
+        console.log(`LiveCO2Ticker fetch error: ${err}`);
+        if (!cancelled) setStatus("error");
+      }
+    };
+
+    fetchLiveCO2();
+    const id = setInterval(fetchLiveCO2, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  return (
+    <div className="absolute top-20 right-6 z-30 select-none pointer-events-none">
+      <div className="flex flex-col items-end gap-1 px-3 py-2 rounded-md border border-white/[0.08] bg-black/50 backdrop-blur-sm font-mono">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span
+              className={`absolute inline-flex h-full w-full rounded-full ${
+                status === "live" ? "bg-red-500 animate-ping" : "bg-white/20"
+              } opacity-75`}
+            />
+            <span
+              className={`relative inline-flex rounded-full h-2 w-2 ${
+                status === "live" ? "bg-red-500" : status === "error" ? "bg-white/20" : "bg-yellow-400"
+              }`}
+            />
+          </span>
+          <span className="text-[9px] tracking-[0.3em] text-white/80">LIVE</span>
+          <span className="text-[12px] font-bold text-white tabular-nums tracking-wider">
+            {status === "live" && ppm !== null
+              ? `${ppm.toFixed(2)} ppm`
+              : status === "error"
+              ? "— ppm"
+              : "···"}
+          </span>
+        </div>
+        <span className="text-[8px] tracking-[0.2em] text-[#888897] uppercase">
+          Mauna Loa Observatory
+        </span>
+      </div>
     </div>
   );
 }
@@ -839,7 +914,7 @@ function CO2Chart() {
             return (
               <g key={val}>
                 <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255, 255, 255, 0.05)" strokeWidth={1} strokeDasharray="4 4" />
-                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="monospace" textAnchor="end">{val}</text>
+                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="end">{val}</text>
               </g>
             );
           })}
@@ -850,7 +925,7 @@ function CO2Chart() {
             return (
               <g key={yr}>
                 <line x1={x} y1={height - padding} x2={x} y2={height - padding + 6} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
-                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="Orbitron, monospace" textAnchor="middle">{yr}</text>
+                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="middle">{yr}</text>
               </g>
             );
           })}
@@ -937,10 +1012,10 @@ function CO2Chart() {
                         strokeWidth={1}
                         style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }}
                       />
-                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="Orbitron, monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         YEAR {hoveredData.year}
                       </text>
-                      <text x={boxWidth / 2} y={34} fill="#00E5FF" fontSize={11} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={34} fill="#00E5FF" fontSize={11} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         {hoveredData.val.toFixed(2)} ppm
                       </text>
                     </g>
@@ -1045,14 +1120,14 @@ function AnomalyChart() {
           onPointerLeave={handlePointerLeave}
         >
           <line x1={padding} y1={baselineY} x2={width - padding} y2={baselineY} stroke="rgba(255, 255, 255, 0.25)" strokeWidth={1.5} />
-          <text x={padding - 8} y={baselineY + 4} fill="rgba(255, 255, 255, 0.6)" fontSize={10} fontFamily="monospace" textAnchor="end">0.0°C</text>
+          <text x={padding - 8} y={baselineY + 4} fill="rgba(255, 255, 255, 0.6)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0°C</text>
 
           {[-0.2, 0.2, 0.5, 0.8, 1.1].map(val => {
             const y = getY(val);
             return (
               <g key={val}>
                 <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255, 255, 255, 0.03)" strokeWidth={1} strokeDasharray="2 2" />
-                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="monospace" textAnchor="end">{val >= 0 ? "+" : ""}{val}°C</text>
+                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="end">{val >= 0 ? "+" : ""}{val}°C</text>
               </g>
             );
           })}
@@ -1062,7 +1137,7 @@ function AnomalyChart() {
             return (
               <g key={yr}>
                 <line x1={x} y1={height - padding} x2={x} y2={height - padding + 6} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
-                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="Orbitron, monospace" textAnchor="middle">{yr}</text>
+                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="middle">{yr}</text>
               </g>
             );
           })}
@@ -1132,10 +1207,10 @@ function AnomalyChart() {
                         strokeWidth={1}
                         style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }}
                       />
-                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="Orbitron, monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         YEAR {hoveredData.year}
                       </text>
-                      <text x={boxWidth / 2} y={34} fill={getBarColor(hoveredData.val)} fontSize={11} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={34} fill={getBarColor(hoveredData.val)} fontSize={11} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         {formatAnomaly(hoveredData.val)}
                       </text>
                     </g>
@@ -1238,7 +1313,7 @@ function LocalTempChart() {
             return (
               <g key={val}>
                 <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255, 255, 255, 0.05)" strokeWidth={1} strokeDasharray="4 4" />
-                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="monospace" textAnchor="end">{val.toFixed(1)}°C</text>
+                <text x={padding - 8} y={y + 4} fill="rgba(255, 255, 255, 0.3)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="end">{val.toFixed(1)}°C</text>
               </g>
             );
           })}
@@ -1248,7 +1323,7 @@ function LocalTempChart() {
             return (
               <g key={yr}>
                 <line x1={x} y1={height - padding} x2={x} y2={height - padding + 6} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
-                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="Orbitron, monospace" textAnchor="middle">{yr}</text>
+                <text x={x} y={height - padding + 20} fill="rgba(255, 255, 255, 0.4)" fontSize={10} fontFamily="'JetBrains Mono', monospace" textAnchor="middle">{yr}</text>
               </g>
             );
           })}
@@ -1331,7 +1406,7 @@ function LocalTempChart() {
                     fill="#FFF"
                     fontSize={8}
                     fontWeight="bold"
-                    fontFamily="Orbitron, monospace"
+                    fontFamily="'JetBrains Mono', monospace"
                     textAnchor="middle"
                   >
                     {m.label}
@@ -1341,7 +1416,7 @@ function LocalTempChart() {
                     y={pt.y + m.yOffset + 25}
                     fill="rgba(255, 255, 255, 0.6)"
                     fontSize={7.5}
-                    fontFamily="monospace"
+                    fontFamily="'JetBrains Mono', monospace"
                     textAnchor="middle"
                   >
                     {m.desc}
@@ -1389,10 +1464,10 @@ function LocalTempChart() {
                         strokeWidth={1}
                         style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }}
                       />
-                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="Orbitron, monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={18} fill="#fff" fontSize={10} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         YEAR {hoveredData.year}
                       </text>
-                      <text x={boxWidth / 2} y={34} fill="#FF7043" fontSize={11} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+                      <text x={boxWidth / 2} y={34} fill="#FF7043" fontSize={11} fontWeight="bold" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">
                         {hoveredData.val.toFixed(2)}°C
                       </text>
                     </g>
@@ -1556,6 +1631,294 @@ function WorkflowTimeline() {
           <span className="text-[10px] text-[#d0d0dc] font-mono text-right font-medium">
             "{step.insight}"
           </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Scroll-narrative primitives (sections 2–5) ───────────────────────────
+
+const LETTER_EASE = [0.16, 1, 0.3, 1] as const;
+
+function LetterReveal({
+  text,
+  className,
+  delay = 0,
+}: {
+  text: string;
+  className?: string;
+  delay?: number;
+}) {
+  const chars = Array.from(text);
+  return (
+    <motion.span
+      initial="initial"
+      whileInView="animate"
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ staggerChildren: 0.04, delayChildren: delay }}
+      className={`inline-flex flex-wrap overflow-hidden align-baseline ${className ?? ""}`}
+      aria-label={text}
+    >
+      {chars.map((c, i) => (
+        <span key={i} className="inline-block overflow-hidden">
+          <motion.span
+            className="inline-block"
+            variants={{
+              initial: { y: "120%", opacity: 0 },
+              animate: {
+                y: 0,
+                opacity: 1,
+                transition: { duration: 1.1, ease: LETTER_EASE },
+              },
+            }}
+          >
+            {c === " " ? " " : c}
+          </motion.span>
+        </span>
+      ))}
+    </motion.span>
+  );
+}
+
+function SectionNumber({ n, label, accent }: { n: string; label: string; accent: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="flex items-center gap-4 font-mono text-[10px] tracking-[0.3em] uppercase"
+    >
+      <span style={{ color: accent }}>{n}</span>
+      <span className="h-px w-16" style={{ backgroundColor: `${accent}55` }} />
+      <span className="text-[#888897]">{label}</span>
+    </motion.div>
+  );
+}
+
+function SandTransitionImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [isPresent, safeToRemove] = usePresence();
+  const filterIdRef = useRef(`sand-${Math.random().toString(36).slice(2, 9)}`);
+  const filterId = filterIdRef.current;
+  const [progress, setProgress] = useState(isPresent ? 0 : 0);
+
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const duration = 900;
+    const entering = isPresent;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = entering ? 1 - Math.pow(1 - t, 4) : Math.pow(t, 3);
+      setProgress(entering ? 1 - eased : eased);
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else if (!entering && safeToRemove) {
+        safeToRemove();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isPresent, safeToRemove]);
+
+  const displacementScale = progress * 150;
+  const dy = isPresent ? -80 * progress : 120 * progress;
+  const dx = isPresent ? -30 * progress : 30 * progress;
+  const blur = progress * 6;
+  const opacity = Math.max(0, 1 - progress * 1.2);
+
+  return (
+    <div className={`relative ${className ?? ""}`} style={{ opacity }}>
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="1.8" numOctaves="4" seed="3" />
+            <feDisplacementMap in="SourceGraphic" scale={displacementScale} />
+            <feOffset dx={dx} dy={dy} />
+            <feGaussianBlur stdDeviation={blur} />
+            <feColorMatrix
+              type="matrix"
+              values={`1 0 0 0 0
+                       0 1 0 0 0
+                       0 0 1 0 0
+                       0 0 0 ${Math.max(0, 1 - progress * 1.2)} 0`}
+            />
+          </filter>
+        </defs>
+      </svg>
+      <img
+        src={src}
+        alt={alt}
+        crossOrigin="anonymous"
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-contain"
+        style={{ filter: progress > 0.01 ? `url(#${filterId})` : undefined }}
+      />
+    </div>
+  );
+}
+
+const CLIMATE_CHAPTERS: Array<{
+  range: [number, number];
+  title: string;
+  blurb: string;
+  severityKey: SeverityKey;
+}> = [
+  { range: [1959, 1969], title: "The Quiet Baseline", blurb: "Ice cores hold steady. CO₂ ticks past 315 ppm — barely noticed.", severityKey: "STABLE" },
+  { range: [1970, 1979], title: "First Signals", blurb: "Anomaly turns positive. The first climate models warn of what is coming.", severityKey: "STABLE" },
+  { range: [1980, 1999], title: "Acceleration", blurb: "Hansen testifies. Mauna Loa crosses 360 ppm. Trend lines bend up.", severityKey: "ELEVATED" },
+  { range: [2000, 2009], title: "The Hot Decade", blurb: "Records fall in sequence. Anomaly clears +0.6°C with momentum.", severityKey: "CRITICAL" },
+  { range: [2010, 2024], title: "Vortex Era", blurb: "424 ppm. +1.29°C. The data tornado tightens its spiral.", severityKey: "EXTREME" },
+];
+
+function ClimateChapters() {
+  const [active, setActive] = useState(2);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => setActive((p) => (p + 1) % CLIMATE_CHAPTERS.length), 3500);
+    return () => clearInterval(id);
+  }, [paused]);
+
+  const chapter = CLIMATE_CHAPTERS[active];
+  const accent = SEVERITY_COLORS[chapter.severityKey];
+
+  const decadeEntry = useMemo(() => {
+    const [a, b] = chapter.range;
+    const mid = Math.round((a + b) / 2);
+    return CLIMATE_DATA.find((d) => d.year === mid) ?? CLIMATE_DATA.find((d) => d.year === a);
+  }, [chapter]);
+
+  return (
+    <div
+      className="relative w-full bg-[#0a0a0a] text-white"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="h-px w-full bg-white/[0.08]" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[520px]">
+        {/* Left: dissolve panel */}
+        <div className="lg:col-span-4 relative border-b lg:border-b-0 lg:border-r border-white/[0.08] min-h-[360px] lg:min-h-0 flex flex-col">
+          <div className="px-8 pt-8 text-[#666] text-xl tracking-[0.4em]">⁂ ⁂ ⁂</div>
+          <div className="flex-1 relative overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={active}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 flex items-center justify-center px-8"
+              >
+                <div
+                  className="size-48 md:size-56 rounded-full border flex items-center justify-center relative"
+                  style={{
+                    borderColor: `${accent}55`,
+                    boxShadow: `0 0 60px ${accent}22, inset 0 0 30px ${accent}15`,
+                  }}
+                >
+                  <span
+                    className="font-orbitron font-black text-[42px] md:text-[52px] tracking-tight"
+                    style={{ color: accent, textShadow: `0 0 18px ${accent}` }}
+                  >
+                    {chapter.range[0]}s
+                  </span>
+                  <span
+                    className="absolute inset-2 rounded-full border border-dashed animate-spin-slow"
+                    style={{ borderColor: `${accent}22` }}
+                  />
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          {/* Counter */}
+          <div className="px-8 pb-8 pt-4 flex items-baseline gap-2 font-mono text-[10px] tracking-widest uppercase">
+            <div className="overflow-hidden h-4 inline-block">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={active}
+                  initial={{ y: 16, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -16, opacity: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="inline-block text-[#888897]"
+                >
+                  {String(active + 1).padStart(2, "0")}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+            <span className="text-[#333]">/</span>
+            <span className="text-[#555]">{String(CLIMATE_CHAPTERS.length).padStart(2, "0")}</span>
+            {decadeEntry && (
+              <span className="ml-auto text-[#888897] font-mono normal-case tracking-wider">
+                {decadeEntry.co2_ppm.toFixed(1)} ppm · {formatAnomaly(decadeEntry.temp_anomaly)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right: chapter list */}
+        <div className="lg:col-span-8 flex flex-col">
+          <div className="px-8 py-5 border-b border-white/[0.08] flex items-center justify-between font-mono text-[10px] tracking-widest uppercase text-[#888897]">
+            <span>Explore the record. Read the trend.</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={active}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="text-white"
+              >
+                Chapter {String(active + 1).padStart(2, "0")}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+          {CLIMATE_CHAPTERS.map((c, i) => {
+            const isActive = i === active;
+            const rowAccent = SEVERITY_COLORS[c.severityKey];
+            return (
+              <button
+                key={c.title}
+                onClick={() => setActive(i)}
+                className={`group flex items-center justify-between border-b border-white/[0.05] px-8 py-7 text-left transition-colors duration-300 ${
+                  isActive ? "text-white" : "text-[#444] hover:text-[#999]"
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <span
+                    className="text-2xl md:text-[2rem] font-medium tracking-tight font-orbitron"
+                    style={isActive ? { color: rowAccent, textShadow: `0 0 12px ${rowAccent}66` } : undefined}
+                  >
+                    {c.title}
+                  </span>
+                  <span className="text-[10px] font-mono tracking-widest uppercase text-[#666]">
+                    {c.range[0]} – {c.range[1]} · {c.blurb}
+                  </span>
+                </div>
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="shrink-0 ml-4"
+                    >
+                      <ArrowUpRight size={22} strokeWidth={1} style={{ color: rowAccent }} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1812,6 +2175,9 @@ export function DataTornado({ isReady = true, defaultYear }: { isReady?: boolean
           <ArrowDown size={12} className="animate-bounce text-[#888897]" />
         </div>
 
+        {/* LIVE CO₂ TICKER */}
+        <LiveCO2Ticker />
+
         {/* SHARE MODAL TRIGGER */}
         <ShareCard todaySeverity={todaySeverity} />
 
@@ -1829,178 +2195,164 @@ export function DataTornado({ isReady = true, defaultYear }: { isReady?: boolean
         )}
       </section>
 
-      {/* SECTION 2: CARBON SURGE */}
-      <section className="relative min-h-screen py-24 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,229,255,0.015)_0%,transparent_60%)] pointer-events-none" />
-        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-5 space-y-6">
-            <ScrollFadeIn>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-[#00E5FF] font-mono text-[9px] tracking-[0.2em] uppercase">
-                Atmospheric Carbon // 02
-              </div>
-            </ScrollFadeIn>
-            
-            <ScrollFadeIn delay={150}>
-              <h2 className="text-3xl md:text-4xl font-black font-orbitron tracking-wider text-white">
-                THE CARBON TRAJECTORY
-              </h2>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={300}>
-              <p className="text-[13px] leading-relaxed text-[#888897]">
-                Since the industrial era, greenhouse gas concentration has surged at an exponential rate. Readings from the Mauna Loa Observatory show atmospheric CO₂ climbing from <span className="text-white font-mono">315.98 ppm</span> in 1959 to a record-breaking <span className="text-white font-mono">424.61 ppm</span> in 2024.
-              </p>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={450}>
-              <div className="p-5 rounded-xl border border-[#00E5FF]/20 bg-[#00E5FF]/5 backdrop-blur-sm relative overflow-hidden group hover:border-[#00E5FF]/40 transition-all duration-300">
-                <div className="absolute top-0 right-0 p-2 bg-[#00E5FF]/10 text-[#00E5FF] font-mono text-[8px] tracking-wider rounded-bl">
-                  STAT SCALE
-                </div>
-                <div className="text-4xl md:text-5xl font-black font-orbitron text-white tracking-tight">
-                  +34.4%
-                </div>
-                <div className="text-[10px] text-[#888897] font-mono mt-2 uppercase tracking-wider">
-                  Increase in Atmospheric Carbon dioxide (1959–2024)
-                </div>
-              </div>
-            </ScrollFadeIn>
+      {/* SECTION 2: CARBON TRAJECTORY */}
+      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(0,229,255,0.04)_0%,transparent_60%)] pointer-events-none" />
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="mb-10">
+            <SectionNumber n="02" label="Atmospheric Carbon" accent="#00E5FF" />
+          </div>
+          <div className="font-orbitron font-black text-white text-mega-sm md:text-mega select-none leading-[0.78]">
+            <div><LetterReveal text="CARBON" /></div>
+            <div className="text-white/30"><LetterReveal text="TRAJECTORY" delay={0.15} /></div>
           </div>
 
-          <div className="lg:col-span-7 w-full">
-            <ScrollFadeIn delay={300}>
+          <div className="mt-16 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="lg:col-span-8 w-full"
+            >
               <CO2Chart />
-            </ScrollFadeIn>
+            </motion.div>
+            <div className="lg:col-span-4 space-y-6">
+              {[
+                { val: "+34.4%", label: "Rise 1959 → 2024" },
+                { val: "424.61", label: "ppm — 2024 peak" },
+                { val: "≈ 2.4", label: "ppm / yr recent trend" },
+              ].map((s, i) => (
+                <motion.div
+                  key={s.label}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-80px" }}
+                  transition={{ duration: 0.7, ease: "easeOut", delay: 0.1 * i }}
+                  className="border-l-2 border-[#00E5FF]/40 pl-5 py-2"
+                >
+                  <div className="font-orbitron font-black text-white text-3xl md:text-4xl tracking-tight">{s.val}</div>
+                  <div className="mt-1 font-mono text-[10px] tracking-widest uppercase text-[#888897]">{s.label}</div>
+                </motion.div>
+              ))}
+              <ScrollFadeIn delay={450}>
+                <p className="text-[13px] leading-relaxed text-[#888897] pt-4">
+                  Since the industrial era, atmospheric CO₂ has surged exponentially. Mauna Loa Observatory readings climbed from <span className="text-white font-mono">315.98 ppm</span> in 1959 to a record <span className="text-white font-mono">424.61 ppm</span> in 2024.
+                </p>
+              </ScrollFadeIn>
+            </div>
           </div>
         </div>
       </section>
 
       {/* SECTION 3: GLOBAL ANOMALY */}
-      <section className="relative min-h-screen py-24 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(229,57,53,0.02)_0%,transparent_60%)] pointer-events-none" />
-        
-        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 w-full order-last lg:order-first">
-            <ScrollFadeIn delay={300}>
-              <AnomalyChart />
-            </ScrollFadeIn>
+      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(229,57,53,0.05)_0%,transparent_60%)] pointer-events-none" />
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="mb-10">
+            <SectionNumber n="03" label="Thermal Deviations" accent="#E53935" />
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
-            <ScrollFadeIn>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-red-500/20 bg-red-500/5 text-[#E53935] font-mono text-[9px] tracking-[0.2em] uppercase">
-                Thermal Deviations // 03
-              </div>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={150}>
-              <h2 className="text-3xl md:text-4xl font-black font-orbitron tracking-wider text-white">
-                GLOBAL ANOMALY INDEX
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            <div className="lg:col-span-5 space-y-6 relative">
+              <h2 className="font-orbitron font-black text-white text-4xl md:text-6xl leading-[0.95] tracking-tight">
+                <div><LetterReveal text="GLOBAL" /></div>
+                <div><LetterReveal text="ANOMALY" delay={0.1} /></div>
+                <div className="text-[#E53935]"><LetterReveal text="INDEX" delay={0.2} /></div>
               </h2>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={300}>
-              <p className="text-[13px] leading-relaxed text-[#888897]">
-                Global temperature anomaly tracks surface thermal deviations relative to the mid-20th-century baseline. Driven by greenhouse feedback, the Earth shifted from stabilizing cooling periods to a rapid thermal surge, reaching <span className="text-[#E53935] font-bold">+1.29°C</span> in 2024.
-              </p>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={450}>
-              <div className="p-5 rounded-xl border border-red-500/20 bg-red-500/5 backdrop-blur-sm relative overflow-hidden group hover:border-red-500/40 transition-all duration-300">
-                <div className="absolute top-0 right-0 p-2 bg-red-500/10 text-[#E53935] font-mono text-[8px] tracking-wider rounded-bl">
-                  EXTREME STATUS
-                </div>
-                <div className="text-4xl md:text-5xl font-black font-orbitron text-white tracking-tight">
-                  +1.29°C
-                </div>
-                <div className="text-[10px] text-[#888897] font-mono mt-2 uppercase tracking-wider">
-                  Global Temperature Anomaly Peak in 2024
-                </div>
-              </div>
-            </ScrollFadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: LOCAL PROFILE */}
-      <section className="relative min-h-screen py-24 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,112,67,0.015)_0%,transparent_60%)] pointer-events-none" />
-        <div className="max-w-6xl mx-auto w-full space-y-12">
-          {/* Header Grid: Text on left, Stat Card on right */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-7 space-y-6">
-              <ScrollFadeIn>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/20 bg-orange-500/5 text-[#FF7043] font-mono text-[9px] tracking-[0.2em] uppercase">
-                  Observatory Telemetry // 04
-                </div>
-              </ScrollFadeIn>
-
-              <ScrollFadeIn delay={150}>
-                <h2 className="text-3xl md:text-4xl font-black font-orbitron tracking-wider text-white">
-                  CENTRAL PARK LOCAL TRENDS
-                </h2>
-              </ScrollFadeIn>
-
-              <ScrollFadeIn delay={300}>
-                <p className="text-[13px] leading-relaxed text-[#888897]">
-                  Local weather station logs are indicative of broader trends. Analyzing Central Park’s annual averages (TAVG) reveals a decadal shift. The mean temperature climbed from <span className="text-white font-mono">12.34°C</span> in the 1960s to <span className="text-white font-mono">13.88°C</span> in the 2020s, culminating in a record high of <span className="text-[#FF7043] font-bold">14.40°C</span> in 2024.
+              <ScrollFadeIn delay={400}>
+                <p className="text-[13px] leading-relaxed text-[#888897] max-w-md">
+                  Surface thermal deviation from the mid-20th-century baseline. The Earth shifted from cooling stability into a rapid thermal surge, reaching <span className="text-[#E53935] font-bold">+1.29°C</span> in 2024.
                 </p>
               </ScrollFadeIn>
+              <div className="hidden lg:block absolute top-0 right-0 h-full w-px bg-white/[0.08]" />
             </div>
+            <motion.div
+              initial={{ opacity: 0, x: 80 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="lg:col-span-7 w-full"
+            >
+              <AnomalyChart />
+            </motion.div>
+          </div>
+        </div>
+      </section>
 
-            <div className="lg:col-span-5 w-full">
-              <ScrollFadeIn delay={450}>
-                <div className="p-5 rounded-xl border border-[#FF7043]/20 bg-[#FF7043]/5 backdrop-blur-sm relative overflow-hidden group hover:border-[#FF7043]/40 transition-all duration-300">
-                  <div className="absolute top-0 right-0 p-2 bg-[#FF7043]/10 text-[#FF7043] font-mono text-[8px] tracking-wider rounded-bl">
-                    DECADE MEAN
-                  </div>
-                  <div className="text-4xl md:text-5xl font-black font-orbitron text-white tracking-tight">
-                    13.88°C
-                  </div>
-                  <div className="text-[10px] text-[#888897] font-mono mt-2 uppercase tracking-wider">
-                    2019-2024 Average Local Temperature
-                  </div>
-                </div>
-              </ScrollFadeIn>
-            </div>
+      {/* SECTION 4: CENTRAL PARK LOCAL TRENDS */}
+      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,112,67,0.04)_0%,transparent_60%)] pointer-events-none" />
+        <div className="max-w-7xl mx-auto w-full space-y-12">
+          <div className="flex flex-col gap-6">
+            <SectionNumber n="04" label="Observatory Telemetry" accent="#FF7043" />
+            <h2 className="font-orbitron font-black text-white text-3xl md:text-5xl tracking-tight">
+              <LetterReveal text="CENTRAL PARK — LOCAL TRENDS" />
+            </h2>
           </div>
 
-          {/* Full Width Chart Row */}
-          <div className="w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 60 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="w-full"
+          >
+            <LocalTempChart />
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+            <ScrollFadeIn>
+              <p className="text-[13px] leading-relaxed text-[#888897]">
+                Local station logs mirror the planetary signal. Central Park's annual TAVG climbed from <span className="text-white font-mono">12.34°C</span> in the 1960s to <span className="text-[#FF7043] font-bold">14.40°C</span> in 2024.
+              </p>
+            </ScrollFadeIn>
+            <ScrollFadeIn delay={150}>
+              <div className="border-l-2 border-[#FF7043]/40 pl-5 py-2">
+                <div className="font-orbitron font-black text-white text-4xl tracking-tight">13.88°C</div>
+                <div className="mt-1 font-mono text-[10px] tracking-widest uppercase text-[#888897]">2019–2024 mean</div>
+              </div>
+            </ScrollFadeIn>
             <ScrollFadeIn delay={300}>
-              <LocalTempChart />
+              <div className="flex md:justify-end items-end gap-3 h-full">
+                <div className="size-12 rounded-full border border-white/15 flex items-center justify-center">
+                  <div className="flex gap-[3px]">
+                    <span className="w-px h-3 bg-white/60" />
+                    <span className="w-px h-3 bg-white/60" />
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono tracking-widest uppercase text-[#888897] pb-3">
+                  Continue telemetry
+                </span>
+              </div>
             </ScrollFadeIn>
           </div>
         </div>
       </section>
 
-      {/* SECTION 5: CONFIG MAKEATHON SHOWCASE */}
-      <section className="relative min-h-screen py-24 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.015)_0%,transparent_60%)] pointer-events-none" />
-        <div className="max-w-6xl mx-auto w-full space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-4">
-            <ScrollFadeIn>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/20 bg-purple-500/5 text-purple-400 font-mono text-[9px] tracking-[0.2em] uppercase">
-                Innovation Showcase // 05
-              </div>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={150}>
-              <h2 className="text-3xl md:text-4xl font-black font-orbitron tracking-wider text-white">
-                CONFIG MAKEATHON BLUEPRINT
+      {/* SECTION 5: CLIMATE CHAPTERS */}
+      <section className="relative bg-[#0a0a0a] text-white z-30 overflow-hidden">
+        <div className="px-6 md:px-12 pt-24 md:pt-32 pb-12">
+          <div className="max-w-7xl mx-auto w-full">
+            <div className="mb-10">
+              <SectionNumber n="05" label="Decade Chapters" accent="#888897" />
+            </div>
+            <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8">
+              <h2 className="font-orbitron font-medium text-white text-3xl md:text-5xl xl:text-6xl leading-[1.05] tracking-tight max-w-3xl">
+                <LetterReveal text="Curated from sixty-five years of climate record" />
               </h2>
-            </ScrollFadeIn>
-
-            <ScrollFadeIn delay={300}>
-              <p className="text-[13px] leading-relaxed text-[#888897]">
-                A breakdown of how Figma canvas architecture, Weave simulation vectors, and live API pipelines were unified to engineer the final Data Tornado simulator.
-              </p>
-            </ScrollFadeIn>
+              <div className="font-mono text-[10px] tracking-widest uppercase text-[#888897] max-w-xs">
+                We don't just plot data —<br />
+                we walk through the record.
+              </div>
+            </div>
           </div>
-
-          <ScrollFadeIn delay={450}>
-            <WorkflowTimeline />
-          </ScrollFadeIn>
+        </div>
+        <ClimateChapters />
+        <div className="h-px w-full bg-white/[0.08]" />
+        <div className="px-8 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 font-mono text-[10px] tracking-widest uppercase text-[#888897]">
+          <span>Digging into the climate record</span>
+          <span>The Data Tornado © 2026</span>
         </div>
       </section>
     </div>
