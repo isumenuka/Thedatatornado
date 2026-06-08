@@ -5,6 +5,11 @@ import { gsap } from "gsap";
 import { CLIMATE_DATA } from "../../../climateData";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import videoSrc from "../../imports/0607.mp4";
+import chapterQuietBaseline from "../../imports/THE_QUIET_BASELINE__1959_1969_.jpeg";
+import chapterFirstSignals from "../../imports/FIRST_SIGNALS__1970_1979_.jpeg";
+import chapterAcceleration from "../../imports/ACCELERATION__1980_1999_.jpeg";
+import chapterHotDecade from "../../imports/THE_HOT_DECADE__2000_2009_.jpeg";
+import chapterVortexEra from "../../imports/VORTEX_ERA__2010_2024_.jpeg";
 import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -1772,12 +1777,13 @@ const CLIMATE_CHAPTERS: Array<{
   title: string;
   blurb: string;
   severityKey: SeverityKey;
+  image: string;
 }> = [
-  { range: [1959, 1969], title: "The Quiet Baseline", blurb: "Ice cores hold steady. CO₂ ticks past 315 ppm — barely noticed.", severityKey: "STABLE" },
-  { range: [1970, 1979], title: "First Signals", blurb: "Anomaly turns positive. The first climate models warn of what is coming.", severityKey: "STABLE" },
-  { range: [1980, 1999], title: "Acceleration", blurb: "Hansen testifies. Mauna Loa crosses 360 ppm. Trend lines bend up.", severityKey: "ELEVATED" },
-  { range: [2000, 2009], title: "The Hot Decade", blurb: "Records fall in sequence. Anomaly clears +0.6°C with momentum.", severityKey: "CRITICAL" },
-  { range: [2010, 2024], title: "Vortex Era", blurb: "424 ppm. +1.29°C. The data tornado tightens its spiral.", severityKey: "EXTREME" },
+  { range: [1959, 1969], title: "The Quiet Baseline", blurb: "Ice cores hold steady. CO₂ ticks past 315 ppm — barely noticed.", severityKey: "STABLE", image: chapterQuietBaseline },
+  { range: [1970, 1979], title: "First Signals", blurb: "Anomaly turns positive. The first climate models warn of what is coming.", severityKey: "STABLE", image: chapterFirstSignals },
+  { range: [1980, 1999], title: "Acceleration", blurb: "Hansen testifies. Mauna Loa crosses 360 ppm. Trend lines bend up.", severityKey: "ELEVATED", image: chapterAcceleration },
+  { range: [2000, 2009], title: "The Hot Decade", blurb: "Records fall in sequence. Anomaly clears +0.6°C with momentum.", severityKey: "CRITICAL", image: chapterHotDecade },
+  { range: [2010, 2024], title: "Vortex Era", blurb: "424 ppm. +1.29°C. The data tornado tightens its spiral.", severityKey: "EXTREME", image: chapterVortexEra },
 ];
 
 function ClimateChapters() {
@@ -1814,28 +1820,32 @@ function ClimateChapters() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 flex items-center justify-center px-8"
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                className="absolute inset-0"
               >
+                <img
+                  src={chapter.image}
+                  alt={`${chapter.title} (${chapter.range[0]}–${chapter.range[1]})`}
+                  className="w-full h-full object-cover"
+                />
                 <div
-                  className="size-48 md:size-56 rounded-full border flex items-center justify-center relative"
+                  className="absolute inset-0 pointer-events-none transition-colors duration-700"
                   style={{
-                    borderColor: `${accent}55`,
-                    boxShadow: `0 0 60px ${accent}22, inset 0 0 30px ${accent}15`,
+                    background: `linear-gradient(180deg, ${accent}22 0%, transparent 30%, rgba(10,10,10,0.45) 100%)`,
+                    boxShadow: `inset 0 0 80px ${accent}33`,
                   }}
-                >
+                />
+                <div className="absolute left-6 bottom-6 right-6 flex items-baseline justify-between font-mono text-[10px] tracking-[0.25em] uppercase text-white/80">
                   <span
-                    className="font-orbitron font-black text-[42px] md:text-[52px] tracking-tight"
-                    style={{ color: accent, textShadow: `0 0 18px ${accent}` }}
+                    className="font-orbitron font-black text-[20px] md:text-[24px] tracking-tight"
+                    style={{ color: accent, textShadow: `0 0 12px ${accent}` }}
                   >
-                    {chapter.range[0]}s
+                    {chapter.range[0]}–{chapter.range[1]}
                   </span>
-                  <span
-                    className="absolute inset-2 rounded-full border border-dashed animate-spin-slow"
-                    style={{ borderColor: `${accent}22` }}
-                  />
+                  <span className="text-white/60">{chapter.title}</span>
                 </div>
               </motion.div>
             </AnimatePresence>
