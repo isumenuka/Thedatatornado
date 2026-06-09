@@ -358,8 +358,8 @@ export function BirthDateVortex() {
                 </div>
               )}
 
-              {/* Other events listings */}
-              <OtherEventsGrid result={result} accent={accent} featured={featured} />
+              {/* All events as animated photo cards */}
+              <AllEventsGrid result={result} featured={featured} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -564,87 +564,269 @@ function ShareCard({
   );
 }
 
-// ── Secondary event listings ──
-function OtherEventsGrid({
+// ── Category fallback images (used when an event has no thumbnail) ──
+const FALLBACK_IMAGES: Record<BirthEvent["category"], string[]> = {
+  tornado: [
+    "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1527482797697-8795b05a13fd?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1561470508-fd4df1ed90b2?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1400&auto=format&fit=crop",
+  ],
+  disaster: [
+    "https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1547683905-f686c993aae5?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1509822929464-92b5d5578b94?q=80&w=1400&auto=format&fit=crop",
+  ],
+  weather: [
+    "https://images.unsplash.com/photo-1504608524841-42584120d833?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1461511669078-d46bf351cd6e?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1534067783941-51c9c23eccfd?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1400&auto=format&fit=crop",
+  ],
+  world: [
+    "https://images.unsplash.com/photo-1518391846015-55a9cc003b25?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1464207687583-a82f6e1d2c6e?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1508962914676-134849a727f0?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1531983412531-1f49a365ffed?q=80&w=1400&auto=format&fit=crop",
+  ],
+  other: [
+    "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?q=80&w=1400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1547683905-f686c993aae5?q=80&w=1400&auto=format&fit=crop",
+  ],
+};
+
+function imageFor(ev: BirthEvent, idx: number): string {
+  if (ev.imageUrl && ev.imageUrl.startsWith("http")) return ev.imageUrl;
+  const pool = FALLBACK_IMAGES[ev.category];
+  return pool[idx % pool.length];
+}
+
+// ── All events grid — animated photo cards ──
+function AllEventsGrid({
   result,
-  accent,
   featured,
 }: {
   result: BirthEventsResponse;
-  accent: string;
   featured: BirthEvent | null;
 }) {
-  const groups: Array<{ key: keyof BirthEventsResponse; label: string; color: string }> = [
-    { key: "tornadoes", label: "Tornadoes", color: CATEGORY_COLORS.tornado },
-    { key: "disasters", label: "Natural Disasters", color: CATEGORY_COLORS.disaster },
-    { key: "weather", label: "Extreme Weather", color: CATEGORY_COLORS.weather },
-    { key: "world", label: "World Events", color: CATEGORY_COLORS.world },
+  const groups: Array<{ key: keyof BirthEventsResponse; label: string; color: string; cat: BirthEvent["category"] }> = [
+    { key: "tornadoes", label: "Tornadoes", color: CATEGORY_COLORS.tornado, cat: "tornado" },
+    { key: "disasters", label: "Natural Disasters", color: CATEGORY_COLORS.disaster, cat: "disaster" },
+    { key: "weather", label: "Extreme Weather", color: CATEGORY_COLORS.weather, cat: "weather" },
+    { key: "world", label: "World Events", color: CATEGORY_COLORS.world, cat: "world" },
   ];
 
   const isFeatured = (ev: BirthEvent) => featured && ev.title === featured.title && ev.date === featured.date;
 
-  const populated = groups.filter((g) => {
-    const arr = result[g.key] as BirthEvent[];
-    return arr && arr.filter((e) => !isFeatured(e)).length > 0;
-  });
+  const populated = groups
+    .map((g) => ({
+      ...g,
+      items: (result[g.key] as BirthEvent[]).filter((e) => !isFeatured(e)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   if (populated.length === 0) {
     return (
-      <p className="mt-6 font-mono text-[10px] tracking-widest uppercase text-white/30">
+      <p className="mt-8 font-mono text-[10px] tracking-widest uppercase text-white/30">
         — No further matches in archive ({result.totalFound} total scanned) —
       </p>
     );
   }
 
   return (
-    <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-      {populated.map((g) => {
-        const items = (result[g.key] as BirthEvent[]).filter((e) => !isFeatured(e)).slice(0, 4);
-        return (
-          <div
-            key={g.key}
-            className="border border-white/[0.06] bg-black/40 rounded-md p-5"
+    <div className="mt-16 flex flex-col gap-14">
+      {populated.map((g, gIdx) => (
+        <div key={g.key}>
+          {/* Section heading */}
+          <motion.div
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: gIdx * 0.08 }}
+            className="flex items-end justify-between mb-6 gap-4"
           >
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-3">
               <span
-                className="w-2 h-2 rounded-full"
-                style={{ background: g.color }}
+                className="w-3 h-3 rounded-full"
+                style={{
+                  background: g.color,
+                  boxShadow: `0 0 14px ${g.color}88`,
+                }}
               />
-              <h4 className="font-orbitron font-black text-[11px] tracking-[0.3em] uppercase text-white">
+              <h4 className="font-orbitron font-black text-lg md:text-2xl tracking-tight uppercase text-white">
                 {g.label}
               </h4>
-              <span className="font-mono text-[9px] text-white/30 ml-auto">
-                {items.length} event{items.length === 1 ? "" : "s"}
+              <span
+                className="font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 rounded"
+                style={{
+                  background: `${g.color}15`,
+                  border: `1px solid ${g.color}44`,
+                  color: g.color,
+                }}
+              >
+                {g.items.length} found
               </span>
             </div>
-            <ul className="flex flex-col gap-3">
-              {items.map((ev, i) => (
-                <li
-                  key={`${g.key}-${i}`}
-                  className="border-l-2 pl-3 py-1"
-                  style={{ borderColor: `${g.color}66` }}
-                >
-                  <div className="font-mono text-[10px] text-white/85 leading-snug">
-                    {ev.title}
-                  </div>
-                  <div className="font-mono text-[8px] tracking-widest uppercase text-white/35 mt-1 flex items-center gap-2">
-                    <span>{ev.date}</span>
-                    <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <span>{ev.sourceName}</span>
-                    <span className="ml-auto" style={{ color: g.color }}>
-                      {MATCH_LABEL[ev.matchLevel]}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div
+              className="h-px flex-1 min-w-0"
+              style={{
+                background: `linear-gradient(to right, ${g.color}55, transparent)`,
+              }}
+            />
+          </motion.div>
+
+          {/* Card grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {g.items.map((ev, i) => (
+              <EventPhotoCard
+                key={`${g.key}-${i}`}
+                event={ev}
+                color={g.color}
+                index={i}
+                fallbackIdx={gIdx * 10 + i}
+              />
+            ))}
           </div>
-        );
-      })}
-      <div className="md:col-span-2 font-mono text-[9px] tracking-widest uppercase text-white/25 text-right">
-        {result.totalFound} total events scanned across all archives
+        </div>
+      ))}
+
+      <div className="font-mono text-[9px] tracking-widest uppercase text-white/25 text-right pt-4 border-t border-white/[0.05]">
+        {result.totalFound} total events scanned across all archives — Wikipedia · NewsAPI · NewsData.io · TheNewsAPI
       </div>
     </div>
+  );
+}
+
+// ── Photo card — inspired by stacked weather card composition ──
+function EventPhotoCard({
+  event,
+  color,
+  index,
+  fallbackIdx,
+}: {
+  event: BirthEvent;
+  color: string;
+  index: number;
+  fallbackIdx: number;
+}) {
+  const imgUrl = imageFor(event, fallbackIdx);
+  const tilt = index % 3 === 0 ? -1.2 : index % 3 === 1 ? 0.8 : -0.4;
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 32, rotate: tilt - 1 }}
+      whileInView={{ opacity: 1, y: 0, rotate: tilt }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.55, delay: index * 0.06, ease: [0.2, 0.7, 0.3, 1] }}
+      whileHover={{
+        y: -8,
+        rotate: 0,
+        scale: 1.025,
+        transition: { duration: 0.3, ease: "easeOut" },
+      }}
+      className="group relative rounded-xl overflow-hidden cursor-pointer"
+      style={{
+        background: "#0d0d14",
+        border: `1px solid ${color}33`,
+        boxShadow: `0 18px 50px -16px rgba(0,0,0,0.7), 0 0 0 1px ${color}11`,
+      }}
+    >
+      {/* Image */}
+      <div
+        className="relative h-44 overflow-hidden"
+        style={{
+          backgroundImage: `url(${imgUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Image zoom on hover */}
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-110"
+          style={{ backgroundImage: `url(${imgUrl})` }}
+        />
+        {/* Gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to top, rgba(13,13,20,0.95) 0%, rgba(13,13,20,0.3) 50%, ${color}22 100%)`,
+          }}
+        />
+        {/* Top badges */}
+        <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2">
+          <span
+            className="font-orbitron font-black text-[9px] tracking-[0.3em] uppercase px-2 py-1 rounded backdrop-blur-md"
+            style={{
+              background: `${color}33`,
+              border: `1px solid ${color}88`,
+              color: "#fff",
+              textShadow: `0 0 8px ${color}`,
+            }}
+          >
+            {event.category}
+          </span>
+          <span
+            className="font-mono text-[8px] tracking-widest uppercase text-white/85 bg-black/60 backdrop-blur-md px-2 py-1 rounded"
+          >
+            {MATCH_LABEL[event.matchLevel]}
+          </span>
+        </div>
+        {/* Scanline */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20 mix-blend-overlay"
+          style={{
+            background:
+              "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)",
+          }}
+        />
+      </div>
+
+      {/* Body */}
+      <div className="p-4 flex flex-col gap-3">
+        <h5 className="font-orbitron font-black text-[13px] leading-tight text-white line-clamp-2">
+          {event.title}
+        </h5>
+
+        <p className="font-mono text-[10px] leading-[1.6] text-white/65 line-clamp-3">
+          {event.description || "Archive entry — no extended description available."}
+        </p>
+
+        <div
+          className="h-px"
+          style={{
+            background: `linear-gradient(to right, ${color}44, transparent)`,
+          }}
+        />
+
+        <div className="flex items-center justify-between font-mono text-[8px] tracking-widest uppercase">
+          <span className="flex items-center gap-1.5 text-white/50">
+            <Calendar size={9} />
+            {event.date}
+          </span>
+          <span style={{ color }}>{event.sourceName}</span>
+        </div>
+
+        {event.sourceUrl && (
+          <a
+            href={event.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[9px] tracking-[0.25em] uppercase text-white/40 hover:text-white inline-flex items-center gap-1.5 transition-colors mt-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Read More <ExternalLink size={9} />
+          </a>
+        )}
+      </div>
+
+      {/* Glow on hover */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{
+          boxShadow: `inset 0 0 40px ${color}33, 0 0 35px ${color}55`,
+        }}
+      />
+    </motion.article>
   );
 }
 
