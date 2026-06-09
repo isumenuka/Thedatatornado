@@ -62,6 +62,7 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import DisasterWitnessGallery from "./disaster-witness-gallery";
+import BirthDateVortex from "./birth-date-vortex";
 
 const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-7b7572b4`;
 
@@ -4155,6 +4156,9 @@ export function DataTornado({
 
       {/* SECTION 6: VORTEX DEBRIS & DISASTER ARCHIVE */}
       <DisasterWitnessGallery />
+
+      {/* SECTION 6.5: BIRTH-DATE TIME-STAMPED VORTEX */}
+      <BirthDateVortex />
 
       {/* SECTION 7: CLIMATE CHAPTERS */}
       <section
