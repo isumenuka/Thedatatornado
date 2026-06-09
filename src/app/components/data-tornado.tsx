@@ -3829,11 +3829,60 @@ export function DataTornado({
     }
   };
 
+  // ── Global scroll-reveal for post-landing sections ────────────────────
+  // Tags every <section> inside this container (except the first, which is
+  // the video hero) with [data-reveal], then uses IntersectionObserver to
+  // toggle a CSS class that fades + slides them in. Inspired by Prisma's
+  // cinematic card entrances but using site's red/dark sci-fi accent.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const sections = Array.from(root.querySelectorAll("section"));
+    const targets = sections.slice(1); // skip hero (landing)
+    targets.forEach((el) => el.setAttribute("data-reveal", "true"));
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("dt-revealed");
+            io.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+    );
+    targets.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className="relative min-h-screen w-full bg-[#05050A] text-white font-sans hud-grid scroll-smooth"
     >
+      <style>{`
+        section[data-reveal] {
+          opacity: 0;
+          transform: translateY(48px) scale(0.985);
+          filter: blur(6px);
+          transition:
+            opacity 1.05s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 1.05s cubic-bezier(0.22, 1, 0.36, 1),
+            filter 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: opacity, transform, filter;
+        }
+        section[data-reveal].dt-revealed {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
+        /* Section heading underline sheen — draws in once revealed */
+        section[data-reveal] h2::after,
+        section[data-reveal] h3::after { content: none; }
+        @media (prefers-reduced-motion: reduce) {
+          section[data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; }
+        }
+      `}</style>
       {/* SECTION 1: INTERACTIVE CHAMBER HERO */}
       <section className="relative h-screen w-full overflow-hidden flex flex-col justify-between">
         <VideoBackground
