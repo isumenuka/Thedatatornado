@@ -366,12 +366,4 @@ export function LoadingTornado({
       </div>
     </div>
   );
-} Overlay */}
-      <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none mt-32">
-        <h1 className="font-orbitron text-[9px] sm:text-[10px] tracking-[0.45em] font-medium text-white/40 uppercase">
-          WELCOME TO THE DATA TORNADO
-        </h1>
-      </div>
-    </div>
-  );
 }
