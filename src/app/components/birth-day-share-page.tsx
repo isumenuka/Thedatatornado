@@ -496,7 +496,7 @@ export default function BirthDaySharePage({
       </div>
 
       {/* ── Header ── */}
-      <div className="w-full max-w-7xl mx-auto px-6 pt-6 flex items-center justify-between z-10 relative">
+      <div className="w-full max-w-7xl mx-auto px-4 pt-4 md:px-6 md:pt-6 flex items-center justify-between z-10 relative gap-3">
         <button
           onClick={onExit}
           className="flex items-center gap-3 text-white/70 hover:text-white transition-colors group cursor-pointer"
@@ -532,7 +532,7 @@ export default function BirthDaySharePage({
             type="text"
             readOnly
             value={dateString || "Loading…"}
-            className="bg-transparent border-none outline-none text-[11px] font-mono text-white/80 w-36 cursor-default"
+            className="bg-transparent border-none outline-none text-[11px] font-mono text-white/80 w-24 sm:w-36 cursor-default"
           />
         </div>
       </div>
@@ -579,12 +579,11 @@ export default function BirthDaySharePage({
              *  [  ghost number  ] | [    card stack    ] | [ dots ]
              */
             <div
-              className="flex flex-row items-center justify-center gap-6"
-              style={{ height: "500px" }}
+              className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 w-full md:w-auto md:h-[500px]"
             >
               {/* COL 1 — Ghost wind speed number, purely decorative */}
               <div
-                className="relative flex-shrink-0 flex items-center justify-center"
+                className="relative flex-shrink-0 hidden md:flex items-center justify-center"
                 style={{ width: "130px", height: "500px" }}
               >
                 {events.map((ev, i) => {
@@ -655,8 +654,7 @@ export default function BirthDaySharePage({
 
               {/* COL 2 — Card stack */}
               <div
-                className="relative flex-shrink-0 flex items-center justify-center"
-                style={{ width: "460px", height: "500px" }}
+                className="relative flex-shrink-0 flex items-center justify-center w-[92vw] sm:w-[420px] md:w-[460px] h-[62vh] sm:h-[500px]"
               >
                 {events.map((ev, i) => {
                   const color = CATEGORY_COLORS[ev.category];
@@ -699,7 +697,7 @@ export default function BirthDaySharePage({
                         backdropFilter: "blur(16px)",
                         WebkitBackdropFilter: "blur(16px)",
                       }}
-                      className="absolute inset-0 rounded-[28px] p-8 overflow-hidden flex flex-col transition-shadow duration-500"
+                      className="absolute inset-0 rounded-[28px] p-5 md:p-8 overflow-hidden flex flex-col transition-shadow duration-500"
                     >
                       {/* Card BG image */}
                       <div
@@ -787,16 +785,15 @@ export default function BirthDaySharePage({
                 })}
               </div>
 
-              {/* COL 3 — Vertical dot navigation */}
+              {/* COL 3 — Vertical dot navigation (horizontal on mobile) */}
               <div
-                className="flex-shrink-0 flex flex-col gap-2.5 items-center justify-center"
-                style={{ height: "500px" }}
+                className="flex-shrink-0 flex flex-row md:flex-col gap-2.5 items-center justify-center md:h-[500px]"
               >
                 {events.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveIndex(idx)}
-                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 cursor-pointer relative before:content-[''] before:absolute before:inset-[-12px] md:before:inset-0 ${
                       idx === activeIndex
                         ? "bg-white scale-125 shadow-[0_0_8px_#fff]"
                         : "bg-white/20 hover:bg-white/40"

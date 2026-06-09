@@ -214,16 +214,16 @@ function Sparkline({
   const currentPoint = points[activeIndex] || { x: 0, y: 0 };
 
   return (
-    <div className="space-y-1.5 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors relative group">
-      <div className="flex justify-between items-baseline">
-        <span className="text-[10px] tracking-[0.15em] text-[#888897] uppercase font-mono">
+    <div className="space-y-1 md:space-y-1.5 p-2 md:p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors relative group">
+      <div className="flex justify-between items-baseline gap-1.5">
+        <span className="text-[8px] sm:text-[9px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] text-[#888897] uppercase font-mono truncate">
           {label}
         </span>
-        <span className="text-white font-mono font-medium text-[12px]">
+        <span className="text-white font-mono font-medium text-[10px] md:text-[12px] whitespace-nowrap">
           {valueText}
         </span>
       </div>
-      <div className="relative h-10 w-full overflow-hidden">
+      <div className="relative h-7 md:h-10 w-full overflow-hidden">
         <svg
           width="100%"
           height="100%"
@@ -352,8 +352,27 @@ function DataPanel({
   noise: { co2: number; temp: number; tavg: number };
   activeIndex: number;
 }) {
-  const [open, setOpen] = useState(true);
   const activeColor = SEVERITY_COLORS[severity];
+
+  // Responsive panel width — matches inner classes (200/260/280/300)
+  const [panelWidth, setPanelWidth] = useState(300);
+  // Default closed on mobile/tablet so it doesn't crowd the viewport
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= 1024;
+  });
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      if (w >= 1024) setPanelWidth(300);
+      else if (w >= 768) setPanelWidth(280);
+      else if (w >= 640) setPanelWidth(220);
+      else setPanelWidth(200);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
 
   const co2Data = useMemo(
     () => CLIMATE_DATA.map((d) => d.co2_ppm),
@@ -369,18 +388,18 @@ function DataPanel({
   );
 
   return (
-    <div className="absolute top-[12%] md:top-1/2 left-0 -translate-y-1/2 z-20 flex items-stretch hud-left-panel">
+    <div className="absolute top-1/2 left-0 -translate-y-1/2 z-20 flex items-stretch hud-left-panel">
       <div
         className="overflow-hidden border border-l-0 transition-all duration-300 hud-panel hud-scanlines"
         style={{
-          width: open ? 300 : 0,
+          width: open ? panelWidth : 0,
           borderColor: `${activeColor}22`,
           borderTopRightRadius: 12,
           borderBottomRightRadius: 12,
           boxShadow: `0 0 30px ${activeColor}08`,
         }}
       >
-        <div className="w-[300px] p-5 font-sans relative rounded-xl backdrop-blur-md bg-white/5 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="w-[200px] sm:w-[220px] md:w-[280px] lg:w-[300px] p-2 sm:p-3 md:p-4 lg:p-5 font-sans relative rounded-xl backdrop-blur-md bg-white/5 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {/* Glowing Top border indicator */}
           <div
             className="h-[3px] w-full absolute top-0 left-0 transition-colors duration-500"
@@ -390,12 +409,12 @@ function DataPanel({
             }}
           />
 
-          <div className="mb-4 mt-2 flex items-center justify-between">
-            <span className="text-[10px] tracking-[0.25em] text-[#888897] font-orbitron">
+          <div className="mb-3 md:mb-4 mt-2 flex items-center justify-between gap-2">
+            <span className="text-[8px] sm:text-[9px] md:text-[10px] tracking-[0.18em] md:tracking-[0.25em] text-[#888897] font-orbitron whitespace-nowrap">
               SENSOR TELEMETRY
             </span>
             <span
-              className="text-[9px] font-mono px-2 py-0.5 rounded border transition-all duration-500"
+              className="text-[8px] md:text-[9px] font-mono px-1.5 md:px-2 py-0.5 rounded border transition-all duration-500"
               style={{
                 borderColor: `${activeColor}44`,
                 color: activeColor,
@@ -406,7 +425,7 @@ function DataPanel({
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2 md:space-y-4">
             {/* Sparkline 1: CO₂ */}
             <Sparkline
               data={co2Data}
@@ -651,6 +670,116 @@ function CustomBendingSlider({
   );
 }
 
+function MobileVerticalTimeline({
+  year,
+  onYearChange,
+  severity,
+}: {
+  year: number;
+  onYearChange: (y: number) => void;
+  severity: SeverityKey;
+}) {
+  const activeColor = SEVERITY_COLORS[severity];
+  const railRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const updateFromY = (clientY: number) => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const rect = rail.getBoundingClientRect();
+    const pct = Math.max(
+      0,
+      Math.min(1, (clientY - rect.top) / rect.height),
+    );
+    onYearChange(MIN_YEAR + Math.round(pct * YEAR_SPAN));
+  };
+
+  const knobPct = ((year - MIN_YEAR) / YEAR_SPAN) * 100;
+
+  return (
+    <div className="md:hidden absolute right-2 top-24 bottom-20 z-20 flex items-stretch select-none pointer-events-none">
+      <div className="relative flex items-stretch pointer-events-auto">
+        {/* Tick labels */}
+        <div className="flex flex-col justify-between py-1 pr-2 items-end">
+          {TICK_YEARS.map((y) => {
+            const isActive = y === year;
+            return (
+              <span
+                key={y}
+                className="text-[9px] font-mono tracking-wider tabular-nums transition-colors"
+                style={{
+                  color: isActive
+                    ? activeColor
+                    : "rgba(255,255,255,0.45)",
+                  textShadow: isActive
+                    ? `0 0 4px ${activeColor}`
+                    : "none",
+                }}
+              >
+                {y}
+              </span>
+            );
+          })}
+        </div>
+        {/* Rail */}
+        <div
+          ref={railRef}
+          className="relative w-[3px] rounded-full bg-white/10 touch-none"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            draggingRef.current = true;
+            updateFromY(e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (draggingRef.current) updateFromY(e.clientY);
+          }}
+          onPointerUp={() => {
+            draggingRef.current = false;
+          }}
+          onPointerCancel={() => {
+            draggingRef.current = false;
+          }}
+        >
+          {/* Active fill */}
+          <div
+            className="absolute top-0 left-0 right-0 rounded-full transition-colors"
+            style={{
+              height: `${knobPct}%`,
+              backgroundColor: activeColor,
+              boxShadow: `0 0 6px ${activeColor}`,
+            }}
+          />
+          {/* Knob */}
+          <div
+            className="absolute -left-2.5 w-7 h-7 rounded-full -translate-y-1/2 flex items-center justify-center"
+            style={{
+              top: `${knobPct}%`,
+              backgroundColor: "#0c0c14",
+              border: `2px solid ${activeColor}`,
+              boxShadow: `0 0 8px ${activeColor}66`,
+            }}
+          >
+            <div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: activeColor }}
+            />
+            <span
+              className="absolute right-9 px-2 py-0.5 rounded text-[11px] font-mono font-bold tabular-nums whitespace-nowrap bg-black/70 border"
+              style={{
+                color: activeColor,
+                borderColor: `${activeColor}55`,
+                textShadow: `0 0 6px ${activeColor}`,
+              }}
+            >
+              {year}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MinimalSliderPanel({
   year,
   onYearChange,
@@ -717,8 +846,8 @@ function LiveCO2Ticker() {
   }, []);
 
   return (
-    <div className="absolute top-20 right-6 z-30 select-none pointer-events-none">
-      <div className="flex flex-col items-end gap-1 px-3 py-2 rounded-md border border-white/[0.08] bg-black/50 backdrop-blur-sm font-mono">
+    <div className="absolute bottom-24 left-3 right-auto top-auto md:bottom-auto md:top-20 md:right-6 md:left-auto z-30 select-none pointer-events-none">
+      <div className="flex flex-col items-start md:items-end gap-1 px-2 py-1.5 md:px-3 md:py-2 rounded-md border border-white/[0.08] bg-black/50 backdrop-blur-sm font-mono">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span
@@ -840,7 +969,7 @@ function ShareCard({
       }}
     >
       <DialogTrigger asChild>
-        <button className="absolute top-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2 border border-white/10 bg-black/40 backdrop-blur-sm font-mono text-[10px] tracking-[0.3em] text-white/50 hover:text-white/90 hover:border-white/25 hover:bg-white/5 transition-all duration-300 rounded-sm">
+        <button className="absolute bottom-12 left-3 right-auto top-auto sm:bottom-auto sm:top-5 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 sm:px-5 sm:py-2 border border-white/10 bg-black/40 backdrop-blur-sm font-mono text-[9px] sm:text-[10px] tracking-[0.25em] sm:tracking-[0.3em] text-white/50 hover:text-white/90 hover:border-white/25 hover:bg-white/5 transition-all duration-300 rounded-sm">
           <Share2 size={10} className="opacity-60" />
           SHARE BIRTH YEAR
         </button>
@@ -2696,11 +2825,11 @@ function FujitaScale() {
     <section
       ref={containerRef}
       style={{ position: "relative" }}
-      className="bg-black text-white z-30 overflow-visible lg:h-[260vh]"
+      className="bg-black text-white z-30 overflow-visible h-[260vh]"
     >
-      <div className="w-full flex flex-col justify-between lg:sticky lg:top-0 lg:h-screen overflow-hidden">
+      <div className="w-full flex flex-col justify-between sticky top-0 h-screen overflow-hidden">
         {/* Header */}
-        <div className="px-6 md:px-12 pt-12 lg:pt-16 pb-4">
+        <div className="px-4 sm:px-6 md:px-12 pt-8 sm:pt-12 lg:pt-16 pb-4">
           <div className="max-w-7xl mx-auto w-full">
             <div className="mb-4">
               <SectionNumber
@@ -2710,7 +2839,7 @@ function FujitaScale() {
               />
             </div>
             <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-              <h2 className="font-orbitron font-medium text-white text-2xl md:text-4xl xl:text-5xl leading-[1.05] tracking-tight max-w-4xl">
+              <h2 className="font-orbitron font-medium text-white text-xl sm:text-2xl md:text-4xl xl:text-5xl leading-[1.05] tracking-tight max-w-4xl">
                 <LetterReveal text="Measuring the vortex" />
               </h2>
               <div className="font-mono text-[9px] tracking-widest uppercase text-[#888897] max-w-xs">
@@ -2723,8 +2852,8 @@ function FujitaScale() {
         </div>
 
         {/* Content grid */}
-        <div className="relative px-6 md:px-12 flex-1 flex items-center">
-          <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[64px_1fr_360px] gap-6 lg:gap-10 pb-8">
+        <div className="relative px-4 sm:px-6 md:px-12 flex-1 flex items-center">
+          <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[64px_1fr_360px] gap-4 sm:gap-6 lg:gap-10 pb-8">
             {/* STRIP A — Interactive EF meter */}
             <div className="hidden lg:block lg:h-[75vh] py-[2vh] self-center">
               <div className="relative w-8 mx-auto h-full flex flex-col items-stretch">
@@ -2763,7 +2892,7 @@ function FujitaScale() {
             </div>
 
             {/* STRIP B — Tornado stage */}
-            <div className="h-[75vh] lg:h-[75vh] self-center w-full">
+            <div className="h-[50vh] sm:h-[60vh] lg:h-[75vh] self-center w-full">
               <div className="relative w-full h-full overflow-hidden">
                 {/* Ambient tier-color glow behind the funnel */}
                 <motion.div
@@ -3250,9 +3379,9 @@ function FujitaScale() {
 
             {/* STRIP C — Instrument Panel */}
             <div className="h-auto lg:h-[75vh] flex items-center self-center w-full">
-              <div className="w-full border border-white/10 bg-white/[0.015] backdrop-blur-sm p-7 rounded-xl">
+              <div className="w-full border border-white/10 bg-white/[0.015] backdrop-blur-sm p-4 sm:p-5 lg:p-7 rounded-xl">
                 {/* Breadcrumb */}
-                <div className="flex items-center justify-between mb-7">
+                <div className="flex items-center justify-between mb-4 lg:mb-7">
                   <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-white/40 tabular-nums">
                     05 / 06
                   </span>
@@ -3275,7 +3404,7 @@ function FujitaScale() {
                   >
                     {/* EF numeral */}
                     <div
-                      className={`font-orbitron font-black text-[88px] leading-[0.85] tracking-tight ${tier.ef === "EF5" && pulse ? "hud-glitch-text" : ""}`}
+                      className={`font-orbitron font-black text-6xl sm:text-7xl lg:text-[88px] leading-[0.85] tracking-tight ${tier.ef === "EF5" && pulse ? "hud-glitch-text" : ""}`}
                       style={{
                         color: accent,
                         textShadow: `0 0 24px ${accent}66`,
@@ -3287,14 +3416,14 @@ function FujitaScale() {
                       {tier.wind}
                     </div>
 
-                    <div className="h-px bg-white/[0.06] my-6" />
+                    <div className="h-px bg-white/[0.06] my-4 lg:my-6" />
 
                     {/* Damage */}
-                    <div className="text-[13px] leading-snug text-white/85 max-w-[280px]">
+                    <div className="text-[12px] sm:text-[13px] leading-snug text-white/85 max-w-full lg:max-w-[280px]">
                       {tier.damage}
                     </div>
 
-                    <div className="h-px bg-white/[0.06] my-6" />
+                    <div className="h-px bg-white/[0.06] my-4 lg:my-6" />
 
                     {/* CO₂ / Anomaly */}
                     <div className="grid grid-cols-2 gap-4">
@@ -3318,7 +3447,7 @@ function FujitaScale() {
                   </motion.div>
                 </AnimatePresence>
 
-                <div className="h-px bg-white/[0.06] my-6" />
+                <div className="h-px bg-white/[0.06] my-4 lg:my-6" />
 
                 {/* 6-cell progress block */}
                 <div className="flex items-center gap-1.5 mb-3">
@@ -3329,7 +3458,7 @@ function FujitaScale() {
                       <button
                         key={t.ef}
                         onClick={() => scrollToTier(i)}
-                        className="flex-1 h-3 cursor-pointer focus:outline-none transition-all duration-300 bg-transparent p-0 border-0"
+                        className="flex-1 h-7 lg:h-3 cursor-pointer focus:outline-none transition-all duration-300 bg-transparent p-0 border-0"
                         style={{
                           background: filled
                             ? c
@@ -3353,7 +3482,7 @@ function FujitaScale() {
         </div>
 
         {/* Hand-off callout */}
-        <div className="max-w-7xl mx-auto w-full px-6 md:px-12 pb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-t border-white/10 pt-4 z-20 bg-black">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-12 pb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-t border-white/10 pt-4 z-20 bg-black">
           <div className="flex items-center gap-3">
             <Wind size={16} className="text-white/50" />
             <span className="font-mono text-[11px] md:text-[13px] tracking-[0.25em] uppercase text-white/80">
@@ -3919,7 +4048,7 @@ export function DataTornado({
         }
       `}</style>
       {/* SECTION 1: INTERACTIVE CHAMBER HERO */}
-      <section className="relative h-screen w-full overflow-hidden flex flex-col justify-between">
+      <section className="relative h-[100svh] min-h-[100svh] md:h-screen md:min-h-0 w-full overflow-hidden flex flex-col justify-between">
         {/* Hero ambient audio — mirrors video, controlled by speaker button */}
         <audio
           ref={audioRef}
@@ -3945,7 +4074,7 @@ export function DataTornado({
         />
 
         {/* TOP HEADER - Gradient Fade (No Hard Border) */}
-        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 pt-6 pb-12 bg-gradient-to-b from-black/95 via-black/40 to-transparent hud-header">
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-3 sm:px-4 md:px-6 pt-4 md:pt-6 pb-8 md:pb-12 bg-gradient-to-b from-black/95 via-black/40 to-transparent hud-header">
           {/* Left Brand */}
           <div className="flex flex-col">
             <span
@@ -3958,13 +4087,13 @@ export function DataTornado({
             >
               THE DATA TORNADO
             </span>
-            <span className="text-[8px] tracking-[0.15em] text-[#888897] font-mono mt-0.5">
+            <span className="hidden sm:inline text-[8px] tracking-[0.15em] text-[#888897] font-mono mt-0.5">
               CLIMATE ANOMALY ANALYSIS INTERFACE // VORTEX.V1
             </span>
           </div>
 
           {/* Right: Year Telemetry + LIVE DATA toggle */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
             <button
               type="button"
               onClick={() => setAudioMuted((m) => !m)}
@@ -3976,16 +4105,16 @@ export function DataTornado({
               ) : (
                 <Volume2 size={13} className="text-[#E53935]" />
               )}
-              <span className="text-[8px] tracking-[0.18em] text-white/70 uppercase">
+              <span className="hidden sm:inline text-[8px] tracking-[0.18em] text-white/70 uppercase">
                 {audioMuted ? "AUDIO OFF" : "AUDIO ON"}
               </span>
             </button>
             <div className="flex items-baseline gap-2">
-              <span className="text-[8px] tracking-[0.15em] text-[#888897] font-mono uppercase">
+              <span className="hidden md:inline text-[8px] tracking-[0.15em] text-[#888897] font-mono uppercase">
                 COORDINATE TIME
               </span>
               <span
-                className={`text-[20px] font-black font-orbitron tracking-wider text-white select-none ${
+                className={`text-[14px] sm:text-[16px] md:text-[20px] font-black font-orbitron tracking-wider text-white select-none ${
                   severity === "CRITICAL" ||
                   severity === "EXTREME"
                     ? "hud-glitch-text"
@@ -4007,16 +4136,23 @@ export function DataTornado({
         />
 
         {/* Bottom Gradient Fade Overlay (No Hard Border) */}
-        <div className="absolute bottom-0 left-0 right-0 h-[280px] bg-gradient-to-t from-[#05050A] via-[#05050A]/80 via-[#05050A]/30 to-transparent pointer-events-none z-10" />
+        <div className="absolute bottom-0 left-0 right-0 h-[180px] sm:h-[220px] md:h-[280px] bg-gradient-to-t from-[#05050A] via-[#05050A]/80 via-[#05050A]/30 to-transparent pointer-events-none z-10" />
 
         {/* BOTTOM CONTROL SYSTEM - FLOATING SLIDER */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-[800px] hud-timeline-panel">
+        <div className="hidden md:block absolute md:bottom-12 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-[800px] hud-timeline-panel">
           <MinimalSliderPanel
             year={year}
             onYearChange={handleYearChange}
             severity={severity}
           />
         </div>
+
+        {/* MOBILE VERTICAL TIMELINE (right side) */}
+        <MobileVerticalTimeline
+          year={year}
+          onYearChange={handleYearChange}
+          severity={severity}
+        />
 
         {/* SCROLL ARROW GUIDE */}
         <div
@@ -4028,8 +4164,11 @@ export function DataTornado({
             });
           }}
         >
-          <span className="text-[8px] tracking-[0.25em] font-mono text-[#888897]">
+          <span className="hidden sm:inline text-[8px] tracking-[0.25em] font-mono text-[#888897]">
             SCROLL TO EXPLORE TELEMETRY
+          </span>
+          <span className="sm:hidden text-[7px] tracking-[0.2em] font-mono text-[#888897]">
+            SCROLL
           </span>
           <ArrowDown
             size={12}
@@ -4061,7 +4200,7 @@ export function DataTornado({
       </section>
 
       {/* SECTION 2: CARBON TRAJECTORY */}
-      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+      <section className="relative min-h-screen py-16 sm:py-20 md:py-32 px-4 sm:px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(0,229,255,0.04)_0%,transparent_60%)] pointer-events-none" />
         <div className="max-w-7xl mx-auto w-full">
           <div className="mb-10">
@@ -4140,7 +4279,7 @@ export function DataTornado({
       </section>
 
       {/* SECTION 3: GLOBAL ANOMALY */}
-      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+      <section className="relative min-h-screen py-16 sm:py-20 md:py-32 px-4 sm:px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(229,57,53,0.05)_0%,transparent_60%)] pointer-events-none" />
         <div className="max-w-7xl mx-auto w-full">
           <div className="mb-10">
@@ -4153,7 +4292,7 @@ export function DataTornado({
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-5 space-y-6 relative">
-              <h2 className="font-orbitron font-black text-white text-4xl md:text-6xl leading-[0.95] tracking-tight">
+              <h2 className="font-orbitron font-black text-white text-2xl sm:text-3xl md:text-6xl leading-[0.95] tracking-tight">
                 <div>
                   <LetterReveal text="GLOBAL" />
                 </div>
@@ -4192,7 +4331,7 @@ export function DataTornado({
       </section>
 
       {/* SECTION 4: CENTRAL PARK LOCAL TRENDS */}
-      <section className="relative min-h-screen py-24 md:py-32 px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
+      <section className="relative min-h-screen py-16 sm:py-20 md:py-32 px-4 sm:px-6 md:px-12 flex flex-col justify-center bg-[#05050A] z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,112,67,0.04)_0%,transparent_60%)] pointer-events-none" />
         <div className="max-w-7xl mx-auto w-full space-y-12">
           <div className="flex flex-col gap-6">
@@ -4201,7 +4340,7 @@ export function DataTornado({
               label="Observatory Telemetry"
               accent="#FF7043"
             />
-            <h2 className="font-orbitron font-black text-white text-3xl md:text-5xl tracking-tight">
+            <h2 className="font-orbitron font-black text-white text-2xl sm:text-3xl md:text-5xl tracking-tight">
               <LetterReveal text="CENTRAL PARK — LOCAL TRENDS" />
             </h2>
           </div>
@@ -4272,7 +4411,7 @@ export function DataTornado({
         id="climate-chapters"
         className="relative bg-[#0a0a0a] text-white z-30 overflow-hidden"
       >
-        <div className="px-6 md:px-12 pt-12 md:pt-16 pb-12">
+        <div className="px-4 sm:px-6 md:px-12 pt-8 sm:pt-12 md:pt-16 pb-12">
           <div className="max-w-7xl mx-auto w-full">
             <div className="mb-10">
               <SectionNumber
@@ -4282,7 +4421,7 @@ export function DataTornado({
               />
             </div>
             <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8">
-              <h2 className="font-orbitron font-medium text-white text-3xl md:text-5xl xl:text-6xl leading-[1.05] tracking-tight max-w-3xl">
+              <h2 className="font-orbitron font-medium text-white text-2xl sm:text-3xl md:text-5xl xl:text-6xl leading-[1.05] tracking-tight max-w-3xl">
                 <LetterReveal text="Curated from sixty-five years of climate record" />
               </h2>
               <div className="font-mono text-[10px] tracking-widest uppercase text-[#888897] max-w-xs">

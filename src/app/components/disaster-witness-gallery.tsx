@@ -99,7 +99,10 @@ export default function DisasterWitnessGallery() {
       lastItemIdRef.current = item.id;
       const uuid = Math.random().toString(36).slice(2);
       const vh = window.innerHeight;
-      const width  = Math.floor(Math.random() * 120) + 300;  // 300–420px
+      const vw = window.innerWidth;
+      // Cap debris width to 70% of viewport so it stays on-screen on mobile/tablet
+      const rawWidth = Math.floor(Math.random() * 120) + 300;
+      const width = Math.min(rawWidth, Math.floor(vw * 0.7));
       const height = Math.floor(width * 0.62);
       const maxTop = Math.max(0, vh - height - 90);
       const top = Math.floor(Math.random() * maxTop);
@@ -115,8 +118,85 @@ export default function DisasterWitnessGallery() {
   const catColor = hoveredItem ? CATEGORY_COLORS[hoveredItem.category] ?? "#E53935" : "#E53935";
 
   return (
+    <>
+    {/* MOBILE / TABLET LAYOUT — single-column card grid */}
+    <section className="lg:hidden relative w-full bg-[#05050A] text-white px-4 sm:px-6 py-12 overflow-hidden">
+      {/* Soft top fade */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-0 right-0 h-56 z-30"
+        style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(5,5,10,0.55) 55%, #05050A 100%)" }}
+      />
+      <div className="relative z-10 max-w-2xl mx-auto">
+        <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.3em] uppercase mb-3">
+          <span style={{ color: "#E53935" }}>06</span>
+          <span className="h-px w-10 bg-[#E53935]/35" />
+          <span className="text-[#888897]">Disaster Witness Gallery</span>
+        </div>
+        <h2 className="font-orbitron font-black text-3xl sm:text-4xl tracking-tight leading-[0.95] uppercase text-white mb-3">
+          VORTEX DEBRIS <span style={{ color: "#E53935", textShadow: "0 0 28px rgba(229,57,53,0.5)" }}>FLOW</span>
+        </h2>
+        <div className="flex items-center gap-2 font-mono text-[9px] tracking-[0.2em] text-[#888897] uppercase mb-6">
+          <Radio size={9} className="text-[#E53935] animate-pulse" />
+          {feedSource} · {liveFeed.length} EVENTS
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {liveFeed.map((item) => {
+            const c = CATEGORY_COLORS[item.category] ?? "#E53935";
+            return (
+              <article
+                key={item.id}
+                className="relative border border-white/10 bg-white/[0.02] rounded-lg overflow-hidden flex flex-col"
+              >
+                <div className="relative w-full aspect-[16/10] overflow-hidden bg-black">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.title}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                  {item.efScale && (
+                    <span
+                      className="absolute top-2 right-2 font-orbitron font-black text-[10px] px-2 py-0.5 rounded border"
+                      style={{ background: `${c}22`, borderColor: `${c}66`, color: c, textShadow: `0 0 8px ${c}88` }}
+                    >
+                      {item.efScale}
+                    </span>
+                  )}
+                </div>
+                <div className="p-3 flex flex-col gap-2">
+                  <h3 className="font-orbitron font-bold text-white text-[13px] leading-snug tracking-wide uppercase">
+                    {item.title}
+                  </h3>
+                  <div className="flex justify-between items-center font-mono text-[9px] text-[#888897]">
+                    <span className="truncate pr-2">📍 {item.location}</span>
+                    <span className="shrink-0">🗓 {item.year}</span>
+                  </div>
+                  {item.windSpeed && item.windSpeed !== "N/A" && (
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-[10px]" style={{ color: c }}>
+                      <Wind size={10} />
+                      {item.windSpeed}
+                    </div>
+                  )}
+                  <p className="font-mono text-[10px] leading-[1.65] text-white/75">
+                    {item.description}
+                  </p>
+                  <div className="flex items-center gap-1.5 font-mono text-[8px] tracking-widest uppercase pt-2 border-t border-white/[0.06]" style={{ color: c }}>
+                    <AlertCircle size={9} />
+                    {item.sourceName.toUpperCase()}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+
+    {/* DESKTOP LAYOUT — flying debris animation (unchanged) */}
     <section
-      className="relative w-full overflow-hidden bg-[#05050A]"
+      className="hidden lg:block relative w-full overflow-hidden bg-[#05050A]"
       style={{ height: "100vh" }}
     >
       {/* Soft fade — overlaps the previous section instead of a hard line */}
@@ -169,8 +249,7 @@ export default function DisasterWitnessGallery() {
       <div className="absolute inset-0 scanlines opacity-30 pointer-events-none z-10" />
 
       {/* ── LEFT PANEL (0%–46%) ── */}
-      <div className="absolute top-0 left-0 bottom-0 flex flex-col justify-between p-10 pointer-events-none z-30"
-        style={{ width: "46%" }}>
+      <div className="absolute top-0 left-0 bottom-0 flex flex-col justify-between p-4 sm:p-6 md:p-10 pointer-events-none z-30 w-[88%] sm:w-[70%] md:w-[46%]">
 
         {/* Top title block */}
         <div className="flex flex-col gap-3">
@@ -187,7 +266,7 @@ export default function DisasterWitnessGallery() {
             <span className="text-[#888897]">Disaster Witness Gallery</span>
           </motion.div>
 
-          <h2 className="font-orbitron font-black text-4xl md:text-[3.6rem] tracking-tight leading-[0.9] uppercase text-white">
+          <h2 className="font-orbitron font-black text-2xl sm:text-3xl md:text-[3.6rem] tracking-tight leading-[0.9] uppercase text-white">
             VORTEX<br/>DEBRIS<br/>
             <span style={{ color:"#E53935", textShadow:"0 0 28px rgba(229,57,53,0.5)" }}>FLOW</span>
           </h2>
@@ -315,8 +394,8 @@ export default function DisasterWitnessGallery() {
         </div>
       </div>
 
-      {/* ── DEBRIS FIELD (right 75%) ── */}
-      <div className="absolute top-0 bottom-0 right-0 overflow-hidden" style={{ left:"25%", zIndex:0 }}>
+      {/* ── DEBRIS FIELD (right 75% on desktop, full width on mobile) ── */}
+      <div className="absolute top-0 bottom-0 right-0 left-0 md:left-[25%] overflow-hidden" style={{ zIndex:0 }}>
 
         {/* Radar rings */}
         <div className="absolute top-1/2 left-0 -translate-y-1/2 pointer-events-none opacity-10">
@@ -359,5 +438,6 @@ export default function DisasterWitnessGallery() {
         </div>
       </div>
     </section>
+    </>
   );
 }

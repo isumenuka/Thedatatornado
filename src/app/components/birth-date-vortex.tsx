@@ -244,7 +244,7 @@ export function BirthDateVortex() {
         }}
       />
 
-      <div className="relative z-10 px-6 md:px-12 py-20 md:py-28 max-w-7xl mx-auto">
+      <div className="relative z-10 px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-28 max-w-7xl mx-auto">
         {/* Section header */}
         <div className="flex items-center gap-4 font-mono text-[10px] tracking-[0.3em] uppercase mb-6">
           <span style={{ color: accent }}>07</span>
@@ -252,7 +252,7 @@ export function BirthDateVortex() {
           <span className="text-[#888897]">Time-Stamped Vortex</span>
         </div>
 
-        <h2 className="font-orbitron font-black text-3xl md:text-5xl xl:text-6xl tracking-tight leading-[0.95] uppercase text-white max-w-3xl">
+        <h2 className="font-orbitron font-black text-2xl sm:text-3xl md:text-5xl xl:text-6xl tracking-tight leading-[0.95] uppercase text-white max-w-3xl">
           What stormed
           <br />
           the day you
@@ -276,7 +276,7 @@ export function BirthDateVortex() {
           aria-labelledby="birth-vortex-heading"
         >
           <fieldset
-            className="border border-white/10 bg-black/40 rounded-md p-5"
+            className="border border-white/10 bg-black/40 rounded-md p-4 md:p-5"
             disabled={loading}
           >
             <legend
@@ -287,7 +287,7 @@ export function BirthDateVortex() {
               Birth Date Input
             </legend>
 
-            <div className="grid grid-cols-3 gap-3 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
               <DateField
                 label="Day"
                 placeholder="DD"
@@ -511,7 +511,7 @@ function ShareCard({
         </div>
 
         {/* Text */}
-        <div className="p-6 md:p-8 flex flex-col gap-4">
+        <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-4">
           <div className="font-mono text-[10px] tracking-[0.3em] uppercase text-white/40 flex items-center gap-2">
             <Tornado size={11} style={{ color: accent }} />
             Birth Date Vortex
