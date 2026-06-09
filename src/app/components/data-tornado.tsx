@@ -27,6 +27,8 @@ import {
   Flame,
   Skull,
   Truck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   motion,
@@ -44,6 +46,7 @@ import {
   publicAnonKey,
 } from "../../../utils/supabase/info";
 import videoSrc from "../../imports/0607.mp4";
+import heroAudioSrc from "../../imports/inematic_sound_desig__2-1781004954014.mp3";
 import chapterQuietBaseline from "../../imports/THE_QUIET_BASELINE__1959_1969_.jpeg";
 import chapterFirstSignals from "../../imports/FIRST_SIGNALS__1970_1979_.jpeg";
 import chapterAcceleration from "../../imports/ACCELERATION__1980_1999_.jpeg";
@@ -3627,8 +3630,10 @@ export function DataTornado({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const pendingSeekTimeRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
+  const [audioMuted, setAudioMuted] = useState(true);
 
   const [year, setYear] = useState(defaultYear ?? MIN_YEAR);
   const [currentTime, setCurrentTime] = useState(0);
@@ -3745,6 +3750,36 @@ export function DataTornado({
       v.pause();
     }
   }, [isPlaying]);
+
+  // ── Hero audio: mirror video play/pause; loop, sync time, follow speed ──
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.muted = audioMuted;
+    a.loop = true;
+    a.playbackRate = playbackRate;
+    if (isPlaying) {
+      a.play().catch(() => {});
+    } else {
+      a.pause();
+    }
+  }, [isPlaying, audioMuted, playbackRate]);
+
+  // Keep audio loosely synced to the video's current time (drift correction)
+  useEffect(() => {
+    const a = audioRef.current;
+    const v = videoRef.current;
+    if (!a || !v) return;
+    const id = setInterval(() => {
+      if (!v.duration || !a.duration) return;
+      // Wrap video time into the audio's duration (audio may be shorter/longer)
+      const target = v.currentTime % a.duration;
+      if (Math.abs(a.currentTime - target) > 0.4) {
+        a.currentTime = target;
+      }
+    }, 800);
+    return () => clearInterval(id);
+  }, []);
 
   // Smooth throttled seeking
   const seekToTime = (time: number) => {
@@ -3885,6 +3920,14 @@ export function DataTornado({
       `}</style>
       {/* SECTION 1: INTERACTIVE CHAMBER HERO */}
       <section className="relative h-screen w-full overflow-hidden flex flex-col justify-between">
+        {/* Hero ambient audio — mirrors video, controlled by speaker button */}
+        <audio
+          ref={audioRef}
+          src={heroAudioSrc}
+          preload="auto"
+          loop
+          muted={audioMuted}
+        />
         <VideoBackground
           videoRef={videoRef}
           onTimeUpdate={handleTimeUpdate}
@@ -3922,6 +3965,21 @@ export function DataTornado({
 
           {/* Right: Year Telemetry + LIVE DATA toggle */}
           <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => setAudioMuted((m) => !m)}
+              aria-label={audioMuted ? "Unmute hero audio" : "Mute hero audio"}
+              className="flex items-center gap-2 px-3 h-8 rounded-sm border border-white/15 bg-black/40 hover:bg-[#E53935]/10 hover:border-[#E53935]/60 transition-colors font-mono"
+            >
+              {audioMuted ? (
+                <VolumeX size={13} className="text-white/60" />
+              ) : (
+                <Volume2 size={13} className="text-[#E53935]" />
+              )}
+              <span className="text-[8px] tracking-[0.18em] text-white/70 uppercase">
+                {audioMuted ? "AUDIO OFF" : "AUDIO ON"}
+              </span>
+            </button>
             <div className="flex items-baseline gap-2">
               <span className="text-[8px] tracking-[0.15em] text-[#888897] font-mono uppercase">
                 COORDINATE TIME
