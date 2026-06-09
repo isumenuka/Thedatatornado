@@ -96,7 +96,9 @@ const fragmentShader = `
   }
 `;
 
-export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
+export function LoadingTornado({
+  onComplete,
+}: LoadingTornadoProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasParentRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
@@ -109,10 +111,10 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
     progress < 25
       ? "#4FC3F7" // Stable
       : progress < 50
-      ? "#FFB74D" // Elevated
-      : progress < 75
-      ? "#FF7043" // Critical
-      : "#E53935"; // Extreme
+        ? "#FFB74D" // Elevated
+        : progress < 75
+          ? "#FF7043" // Critical
+          : "#E53935"; // Extreme
 
   // Animate the progress percentage loader
   useEffect(() => {
@@ -137,9 +139,17 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
     if (!container) return;
 
     // 1. Renderer Setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+    });
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, 2),
+    );
+    renderer.setSize(
+      container.clientWidth,
+      container.clientHeight,
+    );
     container.appendChild(renderer.domElement);
 
     // 2. Scene & Camera Setup
@@ -148,7 +158,7 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
       45,
       container.clientWidth / container.clientHeight,
       1,
-      1000
+      1000,
     );
     camera.position.set(0, 0.35, 3.5);
     camera.lookAt(0, 0, 0);
@@ -160,7 +170,10 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
     const clock = new THREE.Timer();
 
     // 3. Environment (Floor Plane for Raycasting)
-    const floorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
+    const floorMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      visible: false,
+    });
     const floorGeometry = new THREE.PlaneGeometry(2000, 1000);
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.position.set(0, -2, 0);
@@ -184,9 +197,15 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
 
     const curve = new THREE.LineCurve3(
       new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 1, 0)
+      new THREE.Vector3(0, 1, 0),
     );
-    const geometry = new THREE.TubeGeometry(curve, 512, 0.28, 512, false);
+    const geometry = new THREE.TubeGeometry(
+      curve,
+      512,
+      0.28,
+      512,
+      false,
+    );
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(0, -0.65, 0);
     mesh.rotation.set(0, rotationY, 0);
@@ -207,18 +226,27 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length > 0) {
-        updateMousePosition(e.touches[0].clientX, e.touches[0].clientY);
+        updateMousePosition(
+          e.touches[0].clientX,
+          e.touches[0].clientY,
+        );
       }
     };
 
     window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, {
+      passive: true,
+    });
 
     // 6. Resize handler
     const handleResize = () => {
-      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.aspect =
+        container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(
+        container.clientWidth,
+        container.clientHeight,
+      );
     };
     window.addEventListener("resize", handleResize);
 
@@ -234,9 +262,12 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
       // Animate uniforms: height grows, curl tightens, density expands
       clock.update();
       material.uniforms.u_time.value = 1.3 * clock.getElapsed();
-      material.uniforms.u_height.value = 0.1 + currentProgressRatio * 0.55; // scale up to 0.65
-      material.uniforms.u_density.value = 1.2 + currentProgressRatio * 1.3; // scale up to 2.5
-      material.uniforms.u_curl.value = 4.0 + currentProgressRatio * 8.0; // scale up to 12.0
+      material.uniforms.u_height.value =
+        0.1 + currentProgressRatio * 0.55; // scale up to 0.65
+      material.uniforms.u_density.value =
+        1.2 + currentProgressRatio * 1.3; // scale up to 2.5
+      material.uniforms.u_curl.value =
+        4.0 + currentProgressRatio * 8.0; // scale up to 12.0
 
       // Mouse damping and physics raycasting
       mouse.x += (mouseTarget.x - mouse.x) * 0.1;
@@ -247,7 +278,10 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
       if (intersects.length) {
         const uv = intersects[0].uv;
         if (uv) {
-          material.uniforms.u_wind.value = new THREE.Vector2(uv.x - 0.5, 0.5 - uv.y)
+          material.uniforms.u_wind.value = new THREE.Vector2(
+            uv.x - 0.5,
+            0.5 - uv.y,
+          )
             .rotateAround(new THREE.Vector2(0, 0), rotationY)
             .multiplyScalar(200);
         }
@@ -270,8 +304,13 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
       geometry.dispose();
       material.dispose();
       renderer.dispose();
-      if (renderer.domElement && renderer.domElement.parentNode) {
-        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      if (
+        renderer.domElement &&
+        renderer.domElement.parentNode
+      ) {
+        renderer.domElement.parentNode.removeChild(
+          renderer.domElement,
+        );
       }
     };
   }, []);
@@ -320,6 +359,14 @@ export function LoadingTornado({ onComplete }: LoadingTornadoProps) {
       />
 
       {/* Centered Minimal Subtitle Overlay */}
+      <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none mt-32">
+        <h1 className="font-orbitron text-[9px] sm:text-[10px] tracking-[0.45em] font-medium text-white/40 uppercase">
+          WELCOME TO THE DATA TORNADO
+        </h1>
+      </div>
+    </div>
+  );
+} Overlay */}
       <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none mt-32">
         <h1 className="font-orbitron text-[9px] sm:text-[10px] tracking-[0.45em] font-medium text-white/40 uppercase">
           WELCOME TO THE DATA TORNADO

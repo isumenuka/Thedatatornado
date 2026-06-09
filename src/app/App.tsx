@@ -7,10 +7,14 @@ const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-7b
 
 export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
-  const [defaultYear, setDefaultYear] = useState<number | undefined>(undefined);
+  const [defaultYear, setDefaultYear] = useState<
+    number | undefined
+  >(undefined);
 
   useEffect(() => {
-    const shareId = new URLSearchParams(window.location.search).get("share");
+    const shareId = new URLSearchParams(
+      window.location.search,
+    ).get("share");
     if (!shareId) return;
 
     // Deep link: skip loading animation and jump to the shared year
@@ -18,19 +22,29 @@ export default function App() {
     fetch(`${SERVER_URL}/share/${shareId}`, {
       headers: { Authorization: `Bearer ${publicAnonKey}` },
     })
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         if (data.birth_year) setDefaultYear(data.birth_year);
-        else console.log(`Share lookup error: ${JSON.stringify(data)}`);
+        else
+          console.log(
+            `Share lookup error: ${JSON.stringify(data)}`,
+          );
       })
-      .catch(err => console.log(`Share deep-link fetch error: ${err}`));
+      .catch((err) =>
+        console.log(`Share deep-link fetch error: ${err}`),
+      );
   }, []);
 
   return (
     <div className="relative min-h-screen w-full bg-[#05050A]">
-      <DataTornado isReady={showDashboard} defaultYear={defaultYear} />
+      <DataTornado
+        isReady={showDashboard}
+        defaultYear={defaultYear}
+      />
       {!showDashboard && (
-        <LoadingTornado onComplete={() => setShowDashboard(true)} />
+        <LoadingTornado
+          onComplete={() => setShowDashboard(true)}
+        />
       )}
     </div>
   );
