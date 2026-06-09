@@ -216,8 +216,17 @@ export function BirthDateVortex() {
   return (
     <section
       id="birth-date-vortex"
-      className="relative bg-[#05050A] text-white border-t border-white/[0.06] overflow-hidden"
+      className="relative bg-[#05050A] text-white overflow-hidden"
     >
+      {/* Soft fade — overlaps the previous section instead of a hard line */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-0 right-0 h-56 z-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent 0%, rgba(5,5,10,0.55) 55%, #05050A 100%)",
+        }}
+      />
       {/* BG grid */}
       <div
         className="absolute inset-0 pointer-events-none opacity-50"

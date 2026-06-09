@@ -99,7 +99,7 @@ export default function DisasterWitnessGallery() {
       lastItemIdRef.current = item.id;
       const uuid = Math.random().toString(36).slice(2);
       const vh = window.innerHeight;
-      const width  = Math.floor(Math.random() * 180) + 520;  // 520–700px
+      const width  = Math.floor(Math.random() * 120) + 300;  // 300–420px
       const height = Math.floor(width * 0.62);
       const maxTop = Math.max(0, vh - height - 90);
       const top = Math.floor(Math.random() * maxTop);
@@ -116,9 +116,18 @@ export default function DisasterWitnessGallery() {
 
   return (
     <section
-      className="relative w-full overflow-hidden bg-[#05050A] border-t border-white/10"
+      className="relative w-full overflow-hidden bg-[#05050A]"
       style={{ height: "100vh" }}
     >
+      {/* Soft fade — overlaps the previous section instead of a hard line */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-0 right-0 h-56 z-30"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent 0%, rgba(5,5,10,0.55) 55%, #05050A 100%)",
+        }}
+      />
       {/* ── CSS ── */}
       <style>{`
         @keyframes vortexFly {
