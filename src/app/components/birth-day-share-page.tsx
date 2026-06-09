@@ -85,38 +85,16 @@ const CATEGORY_RGBS: Record<BirthEvent["category"], string> = {
   other: "136, 136, 151",
 };
 
-const FALLBACK_IMAGES: Record<
-  BirthEvent["category"],
-  string[]
-> = {
-  tornado: [
-    "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?q=80&w=1400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1527482797697-8795b05a13fd?q=80&w=1400&auto=format&fit=crop",
-  ],
-  disaster: [
-    "https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=1400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1547683905-f686c993aae5?q=80&w=1400&auto=format&fit=crop",
-  ],
-  weather: [
-    "https://images.unsplash.com/photo-1504608524841-42584120d833?q=80&w=1400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1461511669078-d46bf351cd6e?q=80&w=1400&auto=format&fit=crop",
-  ],
-  world: [
-    "https://images.unsplash.com/photo-1518391846015-55a9cc003b25?q=80&w=1400&auto=format&fit=crop",
-  ],
-  other: [
-    "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?q=80&w=1400&auto=format&fit=crop",
-  ],
-};
-
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-function imageFor(ev: BirthEvent, idx: number): string {
-  if (ev.imageUrl && ev.imageUrl.startsWith("http"))
-    return ev.imageUrl;
-  const pool =
-    FALLBACK_IMAGES[ev.category] ?? FALLBACK_IMAGES.other;
-  return pool[idx % pool.length];
+// Only real fetched images allowed — no fallbacks. Events without imageUrl are filtered out upstream.
+function imageFor(ev: BirthEvent): string {
+  return ev.imageUrl && /^https?:\/\//.test(ev.imageUrl)
+    ? ev.imageUrl
+    : "";
 }
+
+const hasRealImage = (e: BirthEvent | null | undefined): e is BirthEvent =>
+  !!e && typeof e.imageUrl === "string" && /^https?:\/\//.test(e.imageUrl);
 
 function getCategoryIcon(category: BirthEvent["category"]) {
   switch (category) {
@@ -323,8 +301,16 @@ export default function BirthDaySharePage({
       !arr.some((e) => e.title === record.featured!.title)
     )
       arr.unshift(record.featured);
-    return arr;
+    // Only show events that have a real image fetched from a news/wiki source.
+    return arr.filter(hasRealImage);
   }, [record]);
+
+  // Clamp activeIndex if the count shrinks after filtering.
+  useEffect(() => {
+    if (activeIndex >= events.length && events.length > 0) {
+      setActiveIndex(0);
+    }
+  }, [events.length, activeIndex]);
 
   const dateString = record
     ? record.birth_day && record.birth_month
@@ -489,7 +475,7 @@ export default function BirthDaySharePage({
               transition={{ duration: 1.1, ease: "easeOut" }}
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(${imageFor(events[activeIndex], activeIndex)})`,
+                backgroundImage: `url(${imageFor(events[activeIndex])})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",
@@ -526,12 +512,18 @@ export default function BirthDaySharePage({
           </span>
         </button>
 
-        <div className="hidden md:flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] uppercase text-white/40">
+        <div className="hidden md:flex items-center gap-3 font-mono text-[10px] tracking-[0.3em] uppercase text-white/40">
           <Tornado
             size={12}
             className="animate-pulse text-white/60"
           />
           The Data Tornado · Shared Memory
+          {events.length > 0 && (
+            <span className="text-white/60 border-l border-white/15 pl-3">
+              <span className="text-[#E53935]">{events.length}</span>{" "}
+              {events.length === 1 ? "EVENT" : "EVENTS"}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 backdrop-blur-md">
@@ -579,7 +571,7 @@ export default function BirthDaySharePage({
         <div className="flex-1 w-full flex items-center justify-center z-10 py-4 px-4">
           {events.length === 0 ? (
             <div className="font-mono text-xs tracking-[0.2em] uppercase text-white/40">
-              No events archived for this date.
+              No imaged events archived for this date.
             </div>
           ) : (
             /*
@@ -595,7 +587,7 @@ export default function BirthDaySharePage({
                 className="relative flex-shrink-0 flex items-center justify-center"
                 style={{ width: "130px", height: "500px" }}
               >
-                {events.slice(0, 4).map((ev, i) => {
+                {events.map((ev, i) => {
                   const rgb = CATEGORY_RGBS[ev.category];
                   const val = windVal(ev.category);
                   const offset = i - activeIndex;
@@ -666,10 +658,10 @@ export default function BirthDaySharePage({
                 className="relative flex-shrink-0 flex items-center justify-center"
                 style={{ width: "460px", height: "500px" }}
               >
-                {events.slice(0, 4).map((ev, i) => {
+                {events.map((ev, i) => {
                   const color = CATEGORY_COLORS[ev.category];
                   const rgb = CATEGORY_RGBS[ev.category];
-                  const bg = imageFor(ev, i);
+                  const bg = imageFor(ev);
                   const Icon = getCategoryIcon(ev.category);
                   const co2 = `${Math.round(getClimateForYear(ev.date).co2_ppm)} ppm`;
                   const offset = i - activeIndex;
