@@ -1,7 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Wind, Radio, AlertCircle, Crosshair, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { projectId, publicAnonKey } from "../../../utils/supabase/info";
+
+// ── Locally hosted tornado/storm imagery (user-curated, royalty-free) ────────
+import imgMayfield     from "../../imports/joshua-eckl-iFv3blHlFUQ-unsplash.jpg";
+import imgJoplin       from "../../imports/jonathan-cosens-photography-3UL-0P37Yxw-unsplash.jpg";
+import imgMoore        from "../../imports/florian-delee-4_FNiBot_o0-unsplash.jpg";
+import imgGreenfield   from "../../imports/cook-aynne-hmv8NzKtEz4-unsplash.jpg";
+import imgSulphur      from "../../imports/colin-lloyd-Gozztwl4n1w-unsplash.jpg";
+import imgBridgeCreek  from "../../imports/konstantin-bychkov-x8uMEwMhlg0-unsplash.jpg";
+import imgTuscaloosa   from "../../imports/laura-seaman-GVN8m3tEKrY-unsplash.jpg";
+import imgHackleburg   from "../../imports/raychel-sanner-nqu5L_xc6bc-unsplash.jpg";
+import imgElReno       from "../../imports/ellen-phillips-RDLevidYAWs-unsplash.jpg";
+import imgRollingFork  from "../../imports/raychel-sanner-4RJuBEiSvYM-unsplash.jpg";
+import imgGreensburg   from "../../imports/raychel-sanner-Hr5UJNa62-M-unsplash.jpg";
+import imgParkersburg  from "../../imports/darktez-5CwFM0_U4Hc-unsplash.jpg";
+import imgXenia        from "../../imports/noaa-Zus94oboIsM-unsplash.jpg";
+import imgAndover      from "../../imports/greg-johnson--B-bUNTtFds-unsplash.jpg";
+import imgJarrell      from "../../imports/igor-karimov-E3SsL0NiQ10-unsplash.jpg";
+import imgVilonia      from "../../imports/andrew-seaman-2xuBvG9fQ1c-unsplash.jpg";
+import imgBassfield    from "../../imports/espen-bierud-W43gm6TD118-unsplash.jpg";
+import imgFairdale     from "../../imports/nikolas-noonan-Uw0FsLHXKLM-unsplash.jpg";
+import imgWashington   from "../../imports/greg-johnson-uDCZXC9pUnU-unsplash.jpg";
 
 
 interface NewsItem {
@@ -17,30 +37,29 @@ interface NewsItem {
   category: "vortex" | "damage" | "land" | "people";
 }
 
-// Locked set of 20 historic tornado events. Images are resolved server-side from
-// Wikipedia → NewsAPI → NewsData.io → TheNewsAPI → curated fallback (see /gallery-events).
-// These initial Unsplash URLs are placeholder fallbacks shown only until the server responds.
+// Locked set of 20 historic tornado events. First 9 use user-curated local imagery
+// (no network dependency, no duplication). The remaining 11 reference unique Unsplash
+// IDs and will be replaced with local imagery as the user uploads them.
 const DISASTER_DATASET: NewsItem[] = [
-  { id:"g01", sourceName:"NWS Survey Team", title:"Residential Foundations Swept Clean — Kentucky", location:"Mayfield, Kentucky, USA", year:2021, description:"The 2021 Western Kentucky EF4 outbreak swept hundreds of homes clean off their foundations. Only concrete slabs remained after the 160-mile destruction track.", efScale:"EF4", windSpeed:"190 mph", imageUrl:"https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g02", sourceName:"NWS Survey Team", title:"Medical Center Structure Destroyed — Missouri", location:"Joplin, Missouri, USA", year:2011, description:"The devastating Joplin EF5 carved a mile-wide path directly through the city, heavily damaging St. John's Regional Medical Center and leveling over 7,000 homes in minutes.", efScale:"EF5", windSpeed:"200+ mph", imageUrl:"https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g03", sourceName:"NWS Survey Team", title:"Elementary Schools Severely Impacted — Oklahoma", location:"Moore, Oklahoma, USA", year:2013, description:"A violent EF5 tornado tore through heavily populated areas of Moore, completely flattening two elementary schools and sweeping brick homes entirely away.", efScale:"EF5", windSpeed:"210 mph", imageUrl:"https://images.unsplash.com/photo-1509822929464-92b5d5578b94?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g04", sourceName:"NWS Survey Team", title:"Town Center Obliterated — Iowa", location:"Greenfield, Iowa, USA", year:2024, description:"An extremely fast-moving EF4 tornado produced catastrophic damage in Greenfield, Iowa. Massive wind turbines were snapped in half and numerous homes were reduced to splinters.", efScale:"EF4", windSpeed:"185 mph", imageUrl:"https://images.unsplash.com/photo-1590071089561-2480ec4b2ef0?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g05", sourceName:"NWS Survey Team", title:"Historic Downtown Leveled — Oklahoma", location:"Sulphur, Oklahoma, USA", year:2024, description:"A massive EF3 tornado moved through downtown Sulphur late at night, tearing the roofs and walls off historic brick buildings and tossing heavy vehicles into structures.", efScale:"EF3", windSpeed:"165 mph", imageUrl:"https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g06", sourceName:"DOW Mobile Radar Team", title:"Highest Recorded Winds — Oklahoma", location:"Bridge Creek, Oklahoma, USA", year:1999, description:"This historic F5 tornado produced the highest wind speeds ever recorded on Earth by mobile Doppler radar, deeply scouring the ground and wiping well-built homes off the map.", efScale:"F5", windSpeed:"301 mph (Radar Est.)", imageUrl:"https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?q=80&w=1400&auto=format&fit=crop", category:"vortex" },
-  { id:"g07", sourceName:"NWS Survey Team", title:"Major City Corridor Devastated — Alabama", location:"Tuscaloosa, Alabama, USA", year:2011, description:"A massive multi-vortex EF4 tornado tracked straight through Tuscaloosa, utterly destroying commercial corridors, student housing, and critical infrastructure along an 80-mile path.", efScale:"EF4", windSpeed:"190 mph", imageUrl:"https://images.unsplash.com/photo-1509822929464-92b5d5578b94?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g08", sourceName:"NWS Survey Team", title:"Rural Communities Wiped Out — Alabama", location:"Hackleburg, Alabama, USA", year:2011, description:"One of the most violent tornadoes in the Super Outbreak completely leveled the town of Hackleburg, throwing vehicles hundreds of yards and causing profound ground scouring.", efScale:"EF5", windSpeed:"210 mph", imageUrl:"https://images.unsplash.com/photo-1580687761972-e4c7a0ff9b52?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g09", sourceName:"NWS & DOW Radar Team", title:"Widest Tornado in History — Oklahoma", location:"El Reno, Oklahoma, USA", year:2013, description:"Breaking records with a maximum width of 2.6 miles, this erratic, rapidly expanding multiple-vortex tornado caught veteran storm chasers off guard.", efScale:"EF3", windSpeed:"295 mph (Radar Est.)", imageUrl:"https://images.unsplash.com/photo-1461511669078-d46bf351cd6e?q=80&w=1400&auto=format&fit=crop", category:"vortex" },
-  { id:"g10", sourceName:"NWS Survey Team", title:"Nighttime Surprise Destruction — Mississippi", location:"Rolling Fork, Mississippi, USA", year:2023, description:"Striking under the cover of darkness, this violent EF4 tornado leveled the town of Rolling Fork, tossing massive water towers and obliterating nearly all commercial businesses.", efScale:"EF4", windSpeed:"195 mph", imageUrl:"https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g11", sourceName:"NWS Survey Team", title:"Green Rebuild After Total Loss — Kansas", location:"Greensburg, Kansas, USA", year:2007, description:"A massive 1.7-mile-wide EF5 wedge tornado destroyed 95% of Greensburg. The town famously rebuilt as one of the most environmentally sustainable communities in the country.", efScale:"EF5", windSpeed:"205 mph", imageUrl:"https://images.unsplash.com/photo-1560220604-1985ebfe28b1?q=80&w=1400&auto=format&fit=crop", category:"people" },
-  { id:"g12", sourceName:"NWS Survey Team", title:"Violent Supercell Outbreak — Iowa", location:"Parkersburg, Iowa, USA", year:2008, description:"In a matter of seconds, an EF5 tornado sheared well-built homes down to the subfloor and completely debarked trees, leaving behind an unrecognizable landscape.", efScale:"EF5", windSpeed:"205 mph", imageUrl:"https://images.unsplash.com/photo-1737674913154-ba7f49b6096e?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g13", sourceName:"Historical Survey Data", title:"Super Outbreak Devastation — Ohio", location:"Xenia, Ohio, USA", year:1974, description:"One of the most infamous tornadoes of the 1974 Super Outbreak, the Xenia F5 flattened entire subdivisions and tossed entire freight trains entirely off their tracks.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl:"https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g14", sourceName:"Historical Survey Data", title:"Air Force Base in Path — Kansas", location:"Andover, Kansas, USA", year:1991, description:"A highly visible F5 tornado famously filmed by residents swept through the Golden Spur Mobile Home Park, completely erasing it and narrowly missing a fleet of B-1 bombers.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl:"https://images.unsplash.com/photo-1590071089561-2480ec4b2ef0?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g15", sourceName:"Historical Survey Data", title:"Extreme Asphalt Scouring — Texas", location:"Jarrell, Texas, USA", year:1997, description:"Moving at a slow, creeping pace, this monstrous F5 tornado completely pulverized the Double Creek subdivision, scouring asphalt from roads and leaving absolutely nothing behind.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl:"https://images.unsplash.com/photo-1534067783941-51c9c23eccfd?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g16", sourceName:"NWS Survey Team", title:"Double Tornado Strike — Arkansas", location:"Vilonia, Arkansas, USA", year:2014, description:"Striking a town that had just rebuilt from a 2011 tornado, this high-end EF4 leveled new subdivisions and completely destroyed the local intermediate school.", efScale:"EF4", windSpeed:"190 mph", imageUrl:"https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g17", sourceName:"NWS Survey Team", title:"Twin Wedge Tornadoes — Mississippi", location:"Bassfield, Mississippi, USA", year:2020, description:"Part of a rare twin tornado event, this massive EF4 gouged deep trenches into the earth, shredded dense pine forests, and wiped sturdy homes completely off the map.", efScale:"EF4", windSpeed:"190 mph", imageUrl:"https://images.unsplash.com/photo-1599740831146-2713e2d6b38c?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g18", sourceName:"NWS Survey Team", title:"Tiny Hamlet Obliterated — Illinois", location:"Fairdale, Illinois, USA", year:2015, description:"A violently rotating EF4 swept through the small, tight-knit community of Fairdale, taking homes entirely off their foundations and tossing vehicles miles away.", efScale:"EF4", windSpeed:"200 mph", imageUrl:"https://images.unsplash.com/photo-1580687761972-e4c7a0ff9b52?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g19", sourceName:"NWS Survey Team", title:"Suburban Tracts Destroyed — Illinois", location:"Washington, Illinois, USA", year:2013, description:"Occurring unusually late in the year, this powerful November EF4 leveled hundreds of homes in Washington, Illinois, tossing cars into living rooms and scattering debris for miles.", efScale:"EF4", windSpeed:"190 mph", imageUrl:"https://images.unsplash.com/photo-1509822929464-92b5d5578b94?q=80&w=1400&auto=format&fit=crop", category:"damage" },
-  { id:"g20", sourceName:"Historical Survey Data", title:"Palm Sunday Outbreak — Indiana", location:"Midway, Indiana, USA", year:1965, description:"The infamous double-funneled tornado of the 1965 Palm Sunday Outbreak left profound destruction across mobile home parks, changing severe weather warning systems forever.", efScale:"F4", windSpeed:"200+ mph (Est.)", imageUrl:"https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=1400&auto=format&fit=crop", category:"damage" },
+  { id:"g01", sourceName:"NWS Survey Team", title:"Residential Foundations Swept Clean — Kentucky", location:"Mayfield, Kentucky, USA", year:2021, description:"The 2021 Western Kentucky EF4 outbreak swept hundreds of homes clean off their foundations. Only concrete slabs remained after the 160-mile destruction track.", efScale:"EF4", windSpeed:"190 mph", imageUrl: imgMayfield, category:"damage" },
+  { id:"g02", sourceName:"NWS Survey Team", title:"Medical Center Structure Destroyed — Missouri", location:"Joplin, Missouri, USA", year:2011, description:"The devastating Joplin EF5 carved a mile-wide path directly through the city, heavily damaging St. John's Regional Medical Center and leveling over 7,000 homes in minutes.", efScale:"EF5", windSpeed:"200+ mph", imageUrl: imgJoplin, category:"damage" },
+  { id:"g03", sourceName:"NWS Survey Team", title:"Elementary Schools Severely Impacted — Oklahoma", location:"Moore, Oklahoma, USA", year:2013, description:"A violent EF5 tornado tore through heavily populated areas of Moore, completely flattening two elementary schools and sweeping brick homes entirely away.", efScale:"EF5", windSpeed:"210 mph", imageUrl: imgMoore, category:"damage" },
+  { id:"g04", sourceName:"NWS Survey Team", title:"Town Center Obliterated — Iowa", location:"Greenfield, Iowa, USA", year:2024, description:"An extremely fast-moving EF4 tornado produced catastrophic damage in Greenfield, Iowa. Massive wind turbines were snapped in half and numerous homes were reduced to splinters.", efScale:"EF4", windSpeed:"185 mph", imageUrl: imgGreenfield, category:"damage" },
+  { id:"g05", sourceName:"NWS Survey Team", title:"Historic Downtown Leveled — Oklahoma", location:"Sulphur, Oklahoma, USA", year:2024, description:"A massive EF3 tornado moved through downtown Sulphur late at night, tearing the roofs and walls off historic brick buildings and tossing heavy vehicles into structures.", efScale:"EF3", windSpeed:"165 mph", imageUrl: imgSulphur, category:"damage" },
+  { id:"g06", sourceName:"DOW Mobile Radar Team", title:"Highest Recorded Winds — Oklahoma", location:"Bridge Creek, Oklahoma, USA", year:1999, description:"This historic F5 tornado produced the highest wind speeds ever recorded on Earth by mobile Doppler radar, deeply scouring the ground and wiping well-built homes off the map.", efScale:"F5", windSpeed:"301 mph (Radar Est.)", imageUrl: imgBridgeCreek, category:"vortex" },
+  { id:"g07", sourceName:"NWS Survey Team", title:"Major City Corridor Devastated — Alabama", location:"Tuscaloosa, Alabama, USA", year:2011, description:"A massive multi-vortex EF4 tornado tracked straight through Tuscaloosa, utterly destroying commercial corridors, student housing, and critical infrastructure along an 80-mile path.", efScale:"EF4", windSpeed:"190 mph", imageUrl: imgTuscaloosa, category:"damage" },
+  { id:"g08", sourceName:"NWS Survey Team", title:"Rural Communities Wiped Out — Alabama", location:"Hackleburg, Alabama, USA", year:2011, description:"One of the most violent tornadoes in the Super Outbreak completely leveled the town of Hackleburg, throwing vehicles hundreds of yards and causing profound ground scouring.", efScale:"EF5", windSpeed:"210 mph", imageUrl: imgHackleburg, category:"damage" },
+  { id:"g09", sourceName:"NWS & DOW Radar Team", title:"Widest Tornado in History — Oklahoma", location:"El Reno, Oklahoma, USA", year:2013, description:"Breaking records with a maximum width of 2.6 miles, this erratic, rapidly expanding multiple-vortex tornado caught veteran storm chasers off guard.", efScale:"EF3", windSpeed:"295 mph (Radar Est.)", imageUrl: imgElReno, category:"vortex" },
+  { id:"g10", sourceName:"NWS Survey Team", title:"Nighttime Surprise Destruction — Mississippi", location:"Rolling Fork, Mississippi, USA", year:2023, description:"Striking under the cover of darkness, this violent EF4 tornado leveled the town of Rolling Fork, tossing massive water towers and obliterating nearly all commercial businesses.", efScale:"EF4", windSpeed:"195 mph", imageUrl: imgRollingFork, category:"damage" },
+  { id:"g11", sourceName:"NWS Survey Team", title:"Green Rebuild After Total Loss — Kansas", location:"Greensburg, Kansas, USA", year:2007, description:"A massive 1.7-mile-wide EF5 wedge tornado destroyed 95% of Greensburg. The town famously rebuilt as one of the most environmentally sustainable communities in the country.", efScale:"EF5", windSpeed:"205 mph", imageUrl: imgGreensburg, category:"people" },
+  { id:"g12", sourceName:"NWS Survey Team", title:"Violent Supercell Outbreak — Iowa", location:"Parkersburg, Iowa, USA", year:2008, description:"In a matter of seconds, an EF5 tornado sheared well-built homes down to the subfloor and completely debarked trees, leaving behind an unrecognizable landscape.", efScale:"EF5", windSpeed:"205 mph", imageUrl: imgParkersburg, category:"damage" },
+  { id:"g13", sourceName:"Historical Survey Data", title:"Super Outbreak Devastation — Ohio", location:"Xenia, Ohio, USA", year:1974, description:"One of the most infamous tornadoes of the 1974 Super Outbreak, the Xenia F5 flattened entire subdivisions and tossed entire freight trains entirely off their tracks.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl: imgXenia, category:"damage" },
+  { id:"g14", sourceName:"Historical Survey Data", title:"Air Force Base in Path — Kansas", location:"Andover, Kansas, USA", year:1991, description:"A highly visible F5 tornado famously filmed by residents swept through the Golden Spur Mobile Home Park, completely erasing it and narrowly missing a fleet of B-1 bombers.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl: imgAndover, category:"damage" },
+  { id:"g15", sourceName:"Historical Survey Data", title:"Extreme Asphalt Scouring — Texas", location:"Jarrell, Texas, USA", year:1997, description:"Moving at a slow, creeping pace, this monstrous F5 tornado completely pulverized the Double Creek subdivision, scouring asphalt from roads and leaving absolutely nothing behind.", efScale:"F5", windSpeed:"260 mph (Est.)", imageUrl: imgJarrell, category:"damage" },
+  { id:"g16", sourceName:"NWS Survey Team", title:"Double Tornado Strike — Arkansas", location:"Vilonia, Arkansas, USA", year:2014, description:"Striking a town that had just rebuilt from a 2011 tornado, this high-end EF4 leveled new subdivisions and completely destroyed the local intermediate school.", efScale:"EF4", windSpeed:"190 mph", imageUrl: imgVilonia, category:"damage" },
+  { id:"g17", sourceName:"NWS Survey Team", title:"Twin Wedge Tornadoes — Mississippi", location:"Bassfield, Mississippi, USA", year:2020, description:"Part of a rare twin tornado event, this massive EF4 gouged deep trenches into the earth, shredded dense pine forests, and wiped sturdy homes completely off the map.", efScale:"EF4", windSpeed:"190 mph", imageUrl: imgBassfield, category:"damage" },
+  { id:"g18", sourceName:"NWS Survey Team", title:"Tiny Hamlet Obliterated — Illinois", location:"Fairdale, Illinois, USA", year:2015, description:"A violently rotating EF4 swept through the small, tight-knit community of Fairdale, taking homes entirely off their foundations and tossing vehicles miles away.", efScale:"EF4", windSpeed:"200 mph", imageUrl: imgFairdale, category:"damage" },
+  { id:"g19", sourceName:"NWS Survey Team", title:"Suburban Tracts Destroyed — Illinois", location:"Washington, Illinois, USA", year:2013, description:"Occurring unusually late in the year, this powerful November EF4 leveled hundreds of homes in Washington, Illinois, tossing cars into living rooms and scattering debris for miles.", efScale:"EF4", windSpeed:"190 mph", imageUrl: imgWashington, category:"damage" },
 ];
 
 
@@ -63,81 +82,21 @@ interface DebrisItem {
 export default function DisasterWitnessGallery() {
   const [activeDebris, setActiveDebris] = useState<DebrisItem[]>([]);
   const [hoveredItem, setHoveredItem] = useState<NewsItem | null>(null);
-  const [feedSource, setFeedSource] = useState<string>("Historical Database");
-  const [liveFeed, setLiveFeed] = useState<NewsItem[]>(DISASTER_DATASET);
+  const [feedSource] = useState<string>("Curated Historical Archive");
+  const [liveFeed] = useState<NewsItem[]>(DISASTER_DATASET);
   const [debrisCount, setDebrisCount] = useState(0);
+  const lastItemIdRef = useRef<string | null>(null);
 
-  // Pull the locked 20-event gallery from Supabase Edge Function. Server resolves
-  // each event's image via Wikipedia → NewsAPI → NewsData.io → TheNewsAPI → fallback.
-  // Tolerates cold-deploy 404/503 with one retry; silently keeps placeholder fallbacks
-  // (same 20 events) if the route is unreachable.
-  useEffect(() => {
-    let cancelled = false;
-    const url = `https://${projectId}.supabase.co/functions/v1/make-server-7b7572b4/gallery-events`;
-
-    const attempt = async (): Promise<Response | null> => {
-      try {
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${publicAnonKey}` },
-        });
-        return res;
-      } catch (err) {
-        console.warn("gallery-events network error:", err);
-        return null;
-      }
-    };
-
-    const tryLive = async () => {
-      let res = await attempt();
-      if (res && (res.status === 404 || res.status === 503) && !cancelled) {
-        await new Promise((r) => setTimeout(r, 2500));
-        if (cancelled) return;
-        res = await attempt();
-      }
-      if (!res || !res.ok) {
-        if (res) console.warn(`gallery-events unavailable (status ${res.status}) — using placeholder images.`);
-        return;
-      }
-      try {
-        const data = await res.json();
-        const events: NewsItem[] = (data.events || []).map((it: any) => ({
-          id: it.id,
-          sourceName: it.sourceName,
-          title: it.title,
-          location: it.location,
-          year: it.year,
-          description: it.description,
-          efScale: it.efScale,
-          windSpeed: it.windSpeed,
-          imageUrl: it.imageUrl,
-          category: (it.category as NewsItem["category"]) || "damage",
-        }));
-        if (cancelled) return;
-        if (events.length) {
-          // Replace (do not merge) — the gallery is EXACTLY this locked 20-event set.
-          setLiveFeed(events);
-          const counts = data.imageSourceCounts || {};
-          const sourceLabel = Object.entries(counts)
-            .map(([k, v]) => `${k}:${v}`)
-            .join(" · ");
-          setFeedSource(sourceLabel ? `Image sources — ${sourceLabel}` : "Gallery Live");
-        }
-      } catch (err) {
-        console.warn("gallery-events parse error:", err);
-      }
-    };
-
-    tryLive();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Spawner — large images every 1 second
+  // Spawner — large images every 1 second. Avoids spawning the same image twice in a row.
   useEffect(() => {
     if (!liveFeed.length) return;
     const id = setInterval(() => {
-      const item = liveFeed[Math.floor(Math.random() * liveFeed.length)];
+      let item = liveFeed[Math.floor(Math.random() * liveFeed.length)];
+      // Re-roll up to 4 times to avoid back-to-back duplicates
+      for (let i = 0; i < 4 && item.id === lastItemIdRef.current && liveFeed.length > 1; i++) {
+        item = liveFeed[Math.floor(Math.random() * liveFeed.length)];
+      }
+      lastItemIdRef.current = item.id;
       const uuid = Math.random().toString(36).slice(2);
       const vh = window.innerHeight;
       const width  = Math.floor(Math.random() * 180) + 520;  // 520–700px
