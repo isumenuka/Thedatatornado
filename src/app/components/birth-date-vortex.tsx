@@ -198,7 +198,19 @@ export function BirthDateVortex() {
     setShareCopied(false);
   };
 
-  const featured = result?.featured;
+  const hasImage = (e?: BirthEvent | null): e is BirthEvent =>
+    !!e && typeof e.imageUrl === "string" && /^https?:\/\//.test(e.imageUrl);
+  const pickFeatured = (): BirthEvent | null => {
+    if (!result) return null;
+    if (hasImage(result.featured)) return result.featured;
+    const pools = [result.tornadoes, result.disasters, result.weather, result.world];
+    for (const pool of pools) {
+      const found = pool?.find(hasImage);
+      if (found) return found;
+    }
+    return null;
+  };
+  const featured = pickFeatured();
   const accent = featured ? CATEGORY_COLORS[featured.category] : "#E53935";
 
   return (
@@ -457,16 +469,19 @@ function ShareCard({
     >
       <div className="grid md:grid-cols-[1.1fr_1fr]">
         {/* Image */}
-        <div
-          className="relative h-64 md:h-auto bg-black"
-          style={{
-            backgroundImage: event.imageUrl
-              ? `url(${event.imageUrl})`
-              : `radial-gradient(circle at 30% 40%, ${accent}33 0%, transparent 70%)`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
+        <div className="relative h-64 md:h-auto bg-black overflow-hidden">
+          {event.imageUrl && (
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
           <div
             className="absolute inset-0"
             style={{
@@ -630,11 +645,15 @@ function AllEventsGrid({
   ];
 
   const isFeatured = (ev: BirthEvent) => featured && ev.title === featured.title && ev.date === featured.date;
+  const hasRealImage = (ev: BirthEvent) =>
+    typeof ev.imageUrl === "string" && /^https?:\/\//.test(ev.imageUrl);
 
   const populated = groups
     .map((g) => ({
       ...g,
-      items: (result[g.key] as BirthEvent[]).filter((e) => !isFeatured(e)),
+      items: (result[g.key] as BirthEvent[]).filter(
+        (e) => !isFeatured(e) && hasRealImage(e),
+      ),
     }))
     .filter((g) => g.items.length > 0);
 
@@ -721,8 +740,10 @@ function EventPhotoCard({
   index: number;
   fallbackIdx: number;
 }) {
-  const imgUrl = imageFor(event, fallbackIdx);
+  const imgUrl = event.imageUrl || imageFor(event, fallbackIdx);
   const tilt = index % 3 === 0 ? -1.2 : index % 3 === 1 ? 0.8 : -0.4;
+  const [imgFailed, setImgFailed] = useState(false);
+  if (imgFailed) return null;
 
   return (
     <motion.article
@@ -744,18 +765,14 @@ function EventPhotoCard({
       }}
     >
       {/* Image */}
-      <div
-        className="relative h-44 overflow-hidden"
-        style={{
-          backgroundImage: `url(${imgUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        {/* Image zoom on hover */}
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-110"
-          style={{ backgroundImage: `url(${imgUrl})` }}
+      <div className="relative h-44 overflow-hidden">
+        <img
+          src={imgUrl}
+          alt={event.title}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setImgFailed(true)}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
         />
         {/* Gradient overlay */}
         <div
