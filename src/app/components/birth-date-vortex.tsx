@@ -158,7 +158,19 @@ export function BirthDateVortex() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${publicAnonKey}`,
           },
-          body: JSON.stringify({ birth_year: y, share_text: shareText }),
+          body: JSON.stringify({
+            birth_year: y,
+            birth_month: m,
+            birth_day: d,
+            share_text: shareText,
+            events: [
+              ...(result.tornadoes ?? []),
+              ...(result.disasters ?? []),
+              ...(result.weather ?? []),
+            ],
+            featured: result.featured ?? null,
+            query: result.query ?? { day: d, month: m, year: y },
+          }),
         },
       );
       if (!res.ok) throw new Error(`Share returned ${res.status}`);

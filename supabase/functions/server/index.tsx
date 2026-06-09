@@ -49,13 +49,21 @@ app.post("/make-server-7b7572b4/cache/:year", async (c) => {
 // ── shared_tornadoes ──────────────────────────────────────────────────────────
 
 app.post("/make-server-7b7572b4/share", async (c) => {
-  let body: { birth_year?: number; share_text?: string };
+  let body: {
+    birth_year?: number;
+    birth_month?: number;
+    birth_day?: number;
+    share_text?: string;
+    events?: unknown;
+    featured?: unknown;
+    query?: unknown;
+  };
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
-  const { birth_year, share_text } = body;
+  const { birth_year, birth_month, birth_day, share_text, events, featured, query } = body;
   if (!birth_year || !share_text) {
     return c.json({ error: "birth_year and share_text are required" }, 400);
   }
@@ -63,11 +71,16 @@ app.post("/make-server-7b7572b4/share", async (c) => {
   await kv.set(`share:${id}`, {
     id,
     birth_year,
+    birth_month: birth_month ?? null,
+    birth_day: birth_day ?? null,
     share_text,
+    events: Array.isArray(events) ? events : [],
+    featured: featured ?? null,
+    query: query ?? null,
     view_count: 0,
     created_at: new Date().toISOString(),
   });
-  console.log(`Share created: id=${id} year=${birth_year}`);
+  console.log(`Share created: id=${id} date=${birth_day}/${birth_month}/${birth_year} events=${Array.isArray(events) ? events.length : 0}`);
   return c.json({ id });
 });
 

@@ -1,51 +1,38 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { DataTornado } from "./components/data-tornado";
 import { LoadingTornado } from "./components/loading-tornado";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
-
-const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-7b7572b4`;
+import BirthDaySharePage from "./components/birth-day-share-page";
 
 export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
-  const [defaultYear, setDefaultYear] = useState<
-    number | undefined
-  >(undefined);
+  const [shareId, setShareId] = useState<string | null>(null);
 
   useEffect(() => {
-    const shareId = new URLSearchParams(
-      window.location.search,
-    ).get("share");
-    if (!shareId) return;
-
-    // Deep link: skip loading animation and jump to the shared year
-    setShowDashboard(true);
-    fetch(`${SERVER_URL}/share/${shareId}`, {
-      headers: { Authorization: `Bearer ${publicAnonKey}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.birth_year) setDefaultYear(data.birth_year);
-        else
-          console.log(
-            `Share lookup error: ${JSON.stringify(data)}`,
-          );
-      })
-      .catch((err) =>
-        console.log(`Share deep-link fetch error: ${err}`),
-      );
+    const id = new URLSearchParams(window.location.search).get("share");
+    if (id) {
+      setShareId(id);
+      setShowDashboard(true);
+    }
   }, []);
+
+  const exitShare = () => {
+    setShareId(null);
+    const url = `${window.location.origin}${window.location.pathname}`;
+    window.history.replaceState({}, "", url);
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-[#05050A]">
-      <DataTornado
-        isReady={showDashboard}
-        defaultYear={defaultYear}
-      />
+      <DataTornado isReady={showDashboard} />
       {!showDashboard && (
-        <LoadingTornado
-          onComplete={() => setShowDashboard(true)}
-        />
+        <LoadingTornado onComplete={() => setShowDashboard(true)} />
       )}
+      <AnimatePresence>
+        {shareId && (
+          <BirthDaySharePage key="share" shareId={shareId} onExit={exitShare} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
