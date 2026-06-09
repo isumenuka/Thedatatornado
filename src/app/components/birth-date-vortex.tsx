@@ -231,8 +231,9 @@ export function BirthDateVortex() {
 
         <p className="font-mono text-[11px] md:text-[12px] leading-[1.8] text-white/60 mt-6 max-w-xl">
           Enter your full birth date. We'll sweep historical archives — Wikipedia
-          On This Day, NewsAPI, NewsData.io, TheNewsAPI — for tornadoes, natural
-          disasters, extreme weather, and major world events from that moment in time.
+          On This Day, NewsAPI, NewsData.io, TheNewsAPI — for tornadoes, severe
+          storms, and extreme weather events from that moment in time. No politics,
+          no celebrity news — just the sky.
         </p>
 
         {/* ── FORM ── */}
@@ -614,7 +615,6 @@ function AllEventsGrid({
     { key: "tornadoes", label: "Tornadoes", color: CATEGORY_COLORS.tornado, cat: "tornado" },
     { key: "disasters", label: "Natural Disasters", color: CATEGORY_COLORS.disaster, cat: "disaster" },
     { key: "weather", label: "Extreme Weather", color: CATEGORY_COLORS.weather, cat: "weather" },
-    { key: "world", label: "World Events", color: CATEGORY_COLORS.world, cat: "world" },
   ];
 
   const isFeatured = (ev: BirthEvent) => featured && ev.title === featured.title && ev.date === featured.date;
