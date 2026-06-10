@@ -905,42 +905,22 @@ function ShareCard({
       ? CLIMATE_DATA.find((d) => d.year === submittedYear)
       : null;
 
-  const shareUrl = shareId
-    ? `${window.location.origin}?share=${shareId}`
-    : null;
+  // Share link points back to the hero timeline locked to this year —
+  // separate from the "What stormed the day you were born?" tool which uses ?share=
+  const shareUrl =
+    submittedYear !== null
+      ? `${window.location.origin}${window.location.pathname}?year=${submittedYear}`
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const y = parseInt(input, 10);
     if (!Number.isFinite(y) || y < MIN_YEAR || y > MAX_YEAR)
       return;
-    const entry = CLIMATE_DATA.find((d) => d.year === y);
-    const share_text = entry
-      ? `In ${y}: CO₂ was ${entry.co2_ppm} ppm and the tornado was ${entry.severity}. Today it is ${todaySeverity}.`
-      : `Birth year ${y} — The Data Tornado`;
     setSubmittedYear(y);
     setCopied(false);
-    setShareLoading(true);
-    try {
-      const res = await fetch(`${SERVER_URL}/share`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ birth_year: y, share_text }),
-      });
-      const data = await res.json();
-      if (data.id) setShareId(data.id);
-      else
-        console.log(
-          `Share creation error: ${JSON.stringify(data)}`,
-        );
-    } catch (err) {
-      console.log(`Share POST error: ${err}`);
-    } finally {
-      setShareLoading(false);
-    }
+    setShareLoading(false);
+    setShareId(null);
   };
 
   const handleCopy = async () => {
